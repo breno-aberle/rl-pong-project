@@ -19,6 +19,7 @@ class Policy(torch.nn.Module):
         self.sigma = torch.nn.Parameter(torch.tensor([10.]))  # TODO: Implement learned variance (or copy from Ex5)
         self.init_weights()
 
+
     def init_weights(self):
         for m in self.modules():
             if type(m) is torch.nn.Linear:
@@ -128,6 +129,9 @@ class Agent(object):
 
     def preprocessing(self, observation):
         """ Preprocess the received information: 1) Grayscaling 2) Reducing quality (resizing)
+        Params:
+            observation: image of pong
+
         """
         # Grayscaling
         img_gray = rgb2gray(observation)
