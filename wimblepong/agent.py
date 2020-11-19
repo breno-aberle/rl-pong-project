@@ -1,23 +1,38 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
+
 import numpy as np
 from skimage.color import rgb2gray  # grayscale image
 
 
 class Policy(torch.nn.Module):
-    def __init__(self, state_space, action_space):
+    def __init__(self, state_space, action_space, frames=4):
         super().__init__()
         self.state_space = state_space
         self.action_space = action_space
-        self.hidden = 16
-        self.fc1 = torch.nn.Linear(state_space, self.hidden)
-        self.fc2_mean = torch.nn.Linear(self.hidden, action_space)
+        self.hidden = 512
+        #self.fc1 = torch.nn.Linear(state_space, self.hidden)
+        self.fc2_mean = torch.nn.Linear(self.hidden, action_space)  # neural network for Q
         # TODO: Add another linear layer for the critic
         #Entry the hidden layers, output the value.
-        self.fc3 = torch.nn.Linear(self.hidden, 1)
+        self.fc3 = torch.nn.Linear(self.hidden, 1)  # neural network for V
         self.sigma = torch.nn.Parameter(torch.tensor([10.]))  # TODO: Implement learned variance (or copy from Ex5)
         self.init_weights()
+        # create Convolutional Neural Network: we input 4 frames of dimension of 80x80
+        self.cnn = nn.Sequential(
+            nn.Conv2d(frames, 32, 8, stride=4),  # (number of layers, number of filters, kernel_size e.g. 8x8, stride)
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(3136, 512),
+            nn.ReLU()
+        )
 
 
     def init_weights(self):
@@ -28,8 +43,9 @@ class Policy(torch.nn.Module):
 
     def forward(self, x):
         # Common part
-        x = self.fc1(x)
-        x = F.relu(x)
+        #x = self.fc1(x)
+        #x = F.relu(x)
+        x = self.cnn(x)
 
         # Actor part
         action_mean = self.fc2_mean(x)
@@ -62,6 +78,8 @@ class Agent(object):
         self.name = "BeschdePong"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
         self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
+
+
 
     def update_policy(self, episode_number):
         # Convert buffers to Torch tensors
@@ -105,10 +123,8 @@ class Agent(object):
         # stack Image
         img_stacked, img_collection = stack_images(observation, timestep)
 
-        # TODO: apply CNN here ?
-
         # create torch out from numpy array
-        x = torch.from_numpy(img_preprocessed).float().to(self.train_device)
+        x = torch.from_numpy(img_stacked).float().to(self.train_device)
 
         # TODO: Pass state x through the policy network
         # Or copy from Ex5
@@ -131,7 +147,6 @@ class Agent(object):
         """ Preprocess the received information: 1) Grayscaling 2) Reducing quality (resizing)
         Params:
             observation: image of pong
-
         """
         # Grayscaling
         img_gray = rgb2gray(observation)
@@ -142,7 +157,7 @@ class Agent(object):
 
         return img_resized
 
-    def stack_images(observation, timestep):
+    def stack_images(self, observation, timestep):
         """ Stack up to four frames together
         """
         # image preprocessing
