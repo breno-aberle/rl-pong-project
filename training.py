@@ -2,11 +2,13 @@ import torch
 import gym
 import numpy as np
 import argparse
+import cv2
 import matplotlib.pyplot as plt
 from agent import Agent, Policy
 #from cp_cont import CartPoleEnv  # importing cartpole environment from exercise session
 from wimblepong import Wimblepong # import wimblepong environment
 import pandas as pd
+from PIL import Image
 
 
 # Policy training function
@@ -15,8 +17,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     env = gym.make(env_name)
 
     # Get dimensionalities of actions and observations
-    action_space_dim = env.action_space.shape[-1]
-    observation_space_dim = env.observation_space.shape[-1]
+    action_space_dim = env.action_space.shape
+    observation_space_dim = env.observation_space.shape
 
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)
@@ -32,6 +34,9 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         done = False
         # Reset the environment and observe the initial state
         observation = env.reset()
+        observation = np.array(observation)
+        #observation = cv2.cvtColor(np.array(observation), cv2.COLOR_RGB2GRAY)
+        #print(observation)
 
         # Loop until the episode is over
         while not done:
@@ -123,7 +128,7 @@ def test(env_name, episodes, params, render):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
-    parser.add_argument("--env", type=str, default="WimblepongVisualMultiplayer-v0", help="Environment to use")
+    parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
     parser.add_argument("--train_episodes", type=int, default=5000, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()

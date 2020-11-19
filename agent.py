@@ -3,8 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
+from PIL import Image
+import PIL
 
 import numpy as np
+import cv2
+from skimage import transform
 from skimage.color import rgb2gray  # grayscale image
 
 
@@ -15,7 +19,7 @@ class Policy(torch.nn.Module):
         self.action_space = action_space
         self.hidden = 512
         #self.fc1 = torch.nn.Linear(state_space, self.hidden)
-        self.fc2_mean = torch.nn.Linear(self.hidden, action_space)  # neural network for Q
+        self.fc2_mean = torch.nn.Linear(self.hidden, 3)  # neural network for Q
         # TODO: Add another linear layer for the critic
         #Entry the hidden layers, output the value.
         self.fc3 = torch.nn.Linear(self.hidden, 1)  # neural network for V
@@ -119,42 +123,21 @@ class Agent(object):
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-    def get_action(self, observation, evaluation=False, timestep):
-        # stack Image
-        img_stacked, img_collection = stack_images(observation, timestep)
-
-        # create torch out from numpy array
-        x = torch.from_numpy(img_stacked).float().to(self.train_device)
-
-        # TODO: Pass state x through the policy network
-        # Or copy from Ex5
-        action_distribution, __ = self.policy.forward(x)
-        # TODO: Return mean if evaluation, else sample from the distribution
-        # returned by the policy
-        # Or copy from Ex5
-        if evaluation:
-            action = action_distribution.mean()
-        else:
-            action = action_distribution.sample()
-
-        # TODO: Calculate the log probability of the action
-        # Or copy from Ex5
-        act_log_prob = action_distribution.log_prob(action)
-
-        return action, act_log_prob
-
     def preprocessing(self, observation):
         """ Preprocess the received information: 1) Grayscaling 2) Reducing quality (resizing)
         Params:
             observation: image of pong
         """
         # Grayscaling
-        img_gray = rgb2gray(observation)
+        #img_gray = rgb2gray(observation)
+        img_gray = np.dot(observation, [0.2989, 0.5870, 0.1140]).astype(np.uint8)
+
         # Normalize pixel values
         img_norm = img_gray / 255.0
-        # Downsampling: we receive squared image (e.g. 200x200) and downsample by x2.5 to (80x80)
-        img_resized = img_norm[::2.5,::2.5]
 
+        # Downsampling: we receive squared image (e.g. 200x200) and downsample by x2.5 to (80x80)
+        img_resized = cv2.resize(img_norm, dsize=(80, 80))
+        #img_resized = img_norm[::2.5,::2.5]
         return img_resized
 
     def stack_images(self, observation, timestep):
@@ -183,6 +166,41 @@ class Agent(object):
 
         return img_stacked, self.img_collection
 
+
+    def get_action(self, observation, timestep, evaluation=False):
+        # stack Image
+        img_stacked, img_collection = self.stack_images(observation, timestep)
+
+        # create torch out from numpy array
+        x = torch.from_numpy(img_stacked).float().to(self.train_device)
+        print(x)
+        print(x.shape)
+        #Add one more dimension, batch_size=1, for the conv2d to read it
+        x = x.unsqueeze(0)
+        print(x.shape)
+        # Change the order, so that the channels are at the beginning is expected: (1*4*80*80)
+        x = x.permute(0, 3, 1, 2)
+        print(x.shape)
+
+        # TODO: Pass state x through the policy network
+        # Or copy from Ex5
+        action_distribution, __ = self.policy.forward(x)
+        # TODO: Return mean if evaluation, else sample from the distribution
+        # returned by the policy
+        print(action_distribution)
+        # Or copy from Ex5
+        if evaluation:
+            action = action_distribution.mean()
+        else:
+            action = action_distribution.sample()
+
+        # TODO: Calculate the log probability of the action
+        # Or copy from Ex5
+        act_log_prob = action_distribution.log_prob(action)
+        print(action)
+        return action, act_log_prob
+
+
     def store_outcome(self, state, next_state, action_prob, reward, done):
         # Now we need to store some more information than with PG
         self.states.append(torch.from_numpy(state).float())
@@ -208,3 +226,4 @@ class Agent(object):
             none
         """
         # TODO: Reset the after one point to the middle
+
