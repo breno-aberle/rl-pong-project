@@ -139,6 +139,8 @@ class Agent(object):
         return img_resized
 
     def stack_images(observation, timestep):
+        """ Stack up to four frames together
+        """
         # image preprocessing
         img_preprocessed = self.preprocessing(observation)
 
