@@ -173,14 +173,14 @@ class Agent(object):
 
         # create torch out from numpy array
         x = torch.from_numpy(img_stacked).float().to(self.train_device)
-        print(x)
-        print(x.shape)
+        print("stacked image", x)
+        print("stacked image shape", x.shape)
         #Add one more dimension, batch_size=1, for the conv2d to read it
         x = x.unsqueeze(0)
-        print(x.shape)
-        # Change the order, so that the channels are at the beginning is expected: (1*4*80*80)
+        print("dimension of batch added", x.shape)
+        # Change the order, so that the channels are at the beginning is expected: (1*4*80*80) = (batch size, number of channels, height, width)
         x = x.permute(0, 3, 1, 2)
-        print(x.shape)
+        print("After permutation: ", x.shape)
 
         # TODO: Pass state x through the policy network
         # Or copy from Ex5

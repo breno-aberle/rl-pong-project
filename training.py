@@ -43,7 +43,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             # Get action from the agent
             action, action_probabilities = agent.get_action(observation, timestep=timesteps)
             previous_observation = observation
-
+            print("action: ", action)
+            print("action_probabilities: ", action_probabilities)
             # Perform the action on the environment, get new state and reward
             observation, reward, done, info = env.step(action.detach().numpy())
 
