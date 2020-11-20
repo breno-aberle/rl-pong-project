@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
+from torch.distributions.categorical import Categorical
+
 from PIL import Image
 import PIL
 
@@ -50,6 +52,8 @@ class Policy(torch.nn.Module):
         #x = self.fc1(x)
         #x = F.relu(x)
         x = self.cnn(x)
+        #x.squeeze(0)
+        print("forward x: ", x.shape)
 
         # Actor part
         action_mean = self.fc2_mean(x)
@@ -61,7 +65,8 @@ class Policy(torch.nn.Module):
         # TODO: Instantiate and return a normal distribution
         # with mean mu and std of sigma
         # Implement or copy from Ex5
-        action_dist=Normal(action_mean,sigma)
+        #action_dist = Normal(action_mean, sigma)
+        action_dist = Categorical(logits=action_mean)
         # TODO: Return state value in addition to the distribution
 
         return action_dist , state_val
@@ -87,8 +92,7 @@ class Agent(object):
 
     def update_policy(self, episode_number):
         # Convert buffers to Torch tensors
-        action_probs = torch.stack(self.action_probs, dim=0) \
-                .to(self.train_device).squeeze(-1)
+        action_probs = torch.stack(self.action_probs, dim=0).to(self.train_device).squeeze(-1)
         rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
         states = torch.stack(self.states, dim=0).to(self.train_device).squeeze(-1)
         next_states = torch.stack(self.next_states, dim=0).to(self.train_device).squeeze(-1)
@@ -97,24 +101,40 @@ class Agent(object):
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
 
+        print("action_probs: ", action_probs)
+        print("rewards: ", rewards)
+        print("states: ", states)
+        print("next_states: ", next_states)
+        print("done: ", done)
+
+        print("action_probs shape: ", action_probs.shape)
+        print("rewards shape: ", rewards.shape)
+        print("states shape: ", states.shape)
+        print("next_states shape: ", next_states.shape)
+        print("done shape: ", done.shape)
+
+
+        #print("states: ", states.shape)
+
         # TODO: Compute state values (NO NEED FOR THE DISTRIBUTION)
-        action_distr, pred_value_states=self.policy.forward(states)
-        nextaction_distribution, valueprediction_next_states=self.policy.forward(next_states)
-        ##### COMPUTED using the forward function
+        action_distr, pred_value_states = self.policy.forward(states)
+        nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)  ##### COMPUTED using the forward function
+
         #Critic Loss:
         valueprediction_next_states = (valueprediction_next_states).squeeze(-1)
         pred_value_states = (pred_value_states).squeeze(-1)
         valueprediction_next_states = valueprediction_next_states*(1-done)
-        critic_loss=F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
+        critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
+
         # Advantage estimates
         # TODO: Compute advantage estimates
-        advantage=rewards+self.gamma*valueprediction_next_states-pred_value_states
+        advantage = rewards + self.gamma * valueprediction_next_states - pred_value_states
         # TODO: Calculate actor loss (very similar to PG)
-        actor_loss=(-action_probs * advantage.detach()).mean()
+        actor_loss = (-action_probs * advantage.detach()).mean()
 
         # TODO: Compute the gradients of loss w.r.t. network parameters
         # Or copy from Ex5
-        loss=critic_loss+actor_loss
+        loss = critic_loss + actor_loss
         #print(loss)
         loss.backward()
 
@@ -173,21 +193,24 @@ class Agent(object):
 
         # create torch out from numpy array
         x = torch.from_numpy(img_stacked).float().to(self.train_device)
-        print("stacked image", x)
-        print("stacked image shape", x.shape)
+        #print("stacked image", x)
+        #print("stacked image shape", x.shape)
+
         #Add one more dimension, batch_size=1, for the conv2d to read it
         x = x.unsqueeze(0)
-        print("dimension of batch added", x.shape)
+        #print("dimension of batch added", x.shape)
+
         # Change the order, so that the channels are at the beginning is expected: (1*4*80*80) = (batch size, number of channels, height, width)
         x = x.permute(0, 3, 1, 2)
-        print("After permutation: ", x.shape)
+        #print("After permutation: ", x.shape)
 
         # TODO: Pass state x through the policy network
         # Or copy from Ex5
         action_distribution, __ = self.policy.forward(x)
         # TODO: Return mean if evaluation, else sample from the distribution
         # returned by the policy
-        print(action_distribution)
+        #print("action_distribution", action_distribution)
+
         # Or copy from Ex5
         if evaluation:
             action = action_distribution.mean()
@@ -197,7 +220,8 @@ class Agent(object):
         # TODO: Calculate the log probability of the action
         # Or copy from Ex5
         act_log_prob = action_distribution.log_prob(action)
-        print(action)
+        #print("action from dist: ", action)
+
         return action, act_log_prob
 
 
