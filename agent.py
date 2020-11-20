@@ -191,6 +191,8 @@ class Agent(object):
         # stack Image
         img_stacked, img_collection = self.stack_images(observation, timestep)
 
+
+
         # create torch out from numpy array
         x = torch.from_numpy(img_stacked).float().to(self.train_device)
         #print("stacked image", x)

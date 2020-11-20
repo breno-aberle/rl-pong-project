@@ -40,17 +40,27 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
         # Loop until the episode is over
         while not done:
+
+            # TODO: call first time stack_frames(observation/state) ?
+
             # Get action from the agent
             action, action_probabilities = agent.get_action(observation, timestep=timesteps)
             previous_observation = observation
+
             print("action: ", action)
             print("action_probabilities: ", action_probabilities)
 
             # Perform the action on the environment, get new state and reward
             observation, reward, done, info = env.step(action.detach().numpy())
 
+            # TODO: call second time stack_frames(observation/next_state) ?
+
+            # TODO: BEGIN: start of if done:
+
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
+
+            # TODO: END
 
             # Store total episode reward
             reward_sum += reward
