@@ -42,6 +42,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         while not done:
             # Get action from the agent
             action, action_probabilities = agent.get_action(observation, timestep=timesteps)
+            print(action)
+            print(action_probabilities)
             previous_observation = observation
             print("action: ", action)
             print("action_probabilities: ", action_probabilities)
