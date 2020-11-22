@@ -86,7 +86,7 @@ class Agent(object):
         self.done = []
         self.name = "BeschdePong"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
-        self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
+        #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
 
 
@@ -160,7 +160,7 @@ class Agent(object):
         #img_resized = img_norm[::2.5,::2.5]
         return img_resized
 
-    def stack_images(self, observation, timestep):
+    def stack_images(self, observation, img_collection, timestep):
         """ Stack up to four frames together
         """
         # image preprocessing
@@ -168,28 +168,28 @@ class Agent(object):
 
         if (timestep == 0):  # start of new episode
             # img_collection get filled with zeros again
-            self.img_collection = []
+            img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
             # fill img_collection 4x with the first frame
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
+            img_collection.append(img_preprocessed)
+            img_collection.append(img_preprocessed)
+            img_collection.append(img_preprocessed)
+            img_collection.append(img_preprocessed)
             # Stack the images in img_collection
-            img_stacked = np.stack(self.img_collection, axis=2)
+            img_stacked = np.stack(img_collection, axis=2)
         else:
             # Delete first/oldest entry and append new image
-            self.img_collection.pop(0)
-            self.img_collection.append(img_preprocessed)
+            #img_collection.pop(0)
+            img_collection.append(img_preprocessed)
 
             # Stack the images in img_collection
-            img_stacked = np.stack(self.img_collection, axis=2) # TODO: right axis??
+            img_stacked = np.stack(img_collection, axis=2) # TODO: right axis??
 
-        return img_stacked, self.img_collection
+        return img_stacked, img_collection
 
 
-    def get_action(self, observation, timestep, evaluation=False):
+    def get_action(self, img_stacked, timestep, evaluation=False):
         # stack Image
-        img_stacked, img_collection = self.stack_images(observation, timestep)
+
 
 
 
