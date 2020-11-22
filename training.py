@@ -9,6 +9,7 @@ from agent import Agent, Policy
 from wimblepong import Wimblepong # import wimblepong environment
 import pandas as pd
 from PIL import Image
+from collections import deque
 
 
 # Policy training function
@@ -39,9 +40,9 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         #print(observation)
         # TODO: call first time stack_frames(observation/state) ?
         #Make an array of the dimension 200*200, and 4 elements, full of zeros.
-        img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(stack_size)], maxlen=4)
+        img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
         #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
-        state_images, img_collection = agent.stack_images(observation,img_collection, timestep)
+        state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
         # Loop until the episode is over
         while not done:
 
@@ -61,7 +62,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
             # TODO: call second time stack_frames(observation/next_state) ?
 
-            next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep)
+            next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
             # TODO: BEGIN: start of if done: (no need)
 
             # Store action's outcome (so that the agent can improve its policy)
@@ -74,7 +75,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             else:
                 observation = observation*0
                 # We process the images to get the proper stat rather than just the observation.
-                next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep)
+                next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
                 agent.store_outcome(state_images, next_state_images, action_probabilities, reward, done)
 
 
