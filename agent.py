@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.distributions.categorical import Categorical
+from collections import deque
 
 from PIL import Image
 import PIL
