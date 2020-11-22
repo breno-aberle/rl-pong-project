@@ -252,4 +252,3 @@ class Agent(object):
             none
         """
         # TODO: Reset the after one point to the middle
-
