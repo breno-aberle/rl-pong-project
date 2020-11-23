@@ -52,8 +52,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             #previous_observation = img_stacked
             #State_images
 
-            print("action: ", action)
-            print("action_probabilities: ", action_probabilities)
+            #print("action: ", action)
+            #print("action_probabilities: ", action_probabilities)
 
             # Perform the action on the environment, get new state and reward
             #We do a new action
@@ -84,8 +84,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             timesteps += 1
             counter += 1
             ###COMMENT FOR TASK 1(NEXT two lines)-UNCOMMENT FOR TASK 2-3
-            #if counter%50==0:
-            #    agent.update_policy(episode_number)
+            if timesteps%45==0 and not done:
+                agent.update_policy(episode_number)
 
         #We have to send a image all black/all white, so that the NN knows when that happend the point has finished.
         # Either sending the function doen and getting that as an if inside the preprocessing, or something like this.
@@ -110,6 +110,10 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
     # Training is finished - plot rewards
     if print_things:
+        plt.plot(timesteps_history)
+        plt.legend(["Reward", "100-episode average"])
+        plt.title("AC reward history (non-episodic)")
+        plt.show()
         plt.plot(reward_history)
         plt.plot(average_reward_history)
         plt.legend(["Reward", "100-episode average"])
@@ -121,7 +125,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
                          # TODO: Change algorithm name for plots, if you want
                          "algorithm": ["Non-Episodic AC"]*len(reward_history),
                          "reward": reward_history})
-    torch.save(agent.policy.state_dict(), "model_%s_%d.mdl" % (env_name, train_run_id))
+    torch.save(agent.policy.state_dict(), "model2_%s_%d.mdl" % (env_name, train_run_id))
     return data
 
 
@@ -162,7 +166,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_episodes", type=int, default=10000, help="Number of episodes to train for")
+    parser.add_argument("--train_episodes", type=int, default=200000, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()
 

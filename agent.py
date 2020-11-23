@@ -54,7 +54,7 @@ class Policy(torch.nn.Module):
         #x = F.relu(x)
         x = self.cnn(x)
         #x.squeeze(0)
-        print("forward x: ", x.shape)
+        #print("forward x: ", x.shape)
 
         # Actor part
         action_mean = self.fc2_mean(x)
@@ -78,7 +78,7 @@ class Agent(object):
         self.train_device = "cpu"
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.gamma = 0.99
+        self.gamma = 0.98
         self.clip_range = 0.2
         self.states = []
         self.action_probs = []
