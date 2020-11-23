@@ -96,35 +96,44 @@ class Agent(object):
         action_probs = torch.stack(self.action_probs, dim=0).to(self.train_device).squeeze(-1)
         rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
         states = torch.stack(self.states, dim=0).to(self.train_device).squeeze(-1)
+        #print('states hape',states.shape)
         next_states = torch.stack(self.next_states, dim=0).to(self.train_device).squeeze(-1)
         done = torch.Tensor(self.done).to(self.train_device)
         # Clear state transition buffers
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
 
-        print("action_probs: ", action_probs)
-        print("rewards: ", rewards)
-        print("states: ", states)
-        print("next_states: ", next_states)
-        print("done: ", done)
+        #print("action_probs: ", action_probs)
+        #print("rewards: ", rewards)
+        #print("states: ", states)
+        #print("next_states: ", next_states)
+        #print("done: ", done)
 
-        print("action_probs shape: ", action_probs.shape)
-        print("rewards shape: ", rewards.shape)
-        print("states shape: ", states.shape)
-        print("next_states shape: ", next_states.shape)
-        print("done shape: ", done.shape)
+        #print("action_probs shape: ", action_probs.shape)
+        #print("rewards shape: ", rewards.shape)
+        #print("states shape: ", states.shape)
+        #print("next_states shape: ", next_states.shape)
+        #print("done shape: ", done.shape)
 
 
         #print("states: ", states.shape)
 
         # TODO: Compute state values (NO NEED FOR THE DISTRIBUTION)
+        states = states.permute(0, 3, 1, 2)
+        #print(states.shape)
+        next_states = next_states.permute(0,3,1,2)
         action_distr, pred_value_states = self.policy.forward(states)
         nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)  ##### COMPUTED using the forward function
 
         #Critic Loss:
         valueprediction_next_states = (valueprediction_next_states).squeeze(-1)
         pred_value_states = (pred_value_states).squeeze(-1)
-        valueprediction_next_states = valueprediction_next_states*(1-done)
+        #print(valueprediction_next_states.shape)
+        #print(done.shape)
+        valueprediction_next_states = torch.mul(valueprediction_next_states, 1-done)
+        #valueprediction_next_states = valueprediction_next_states*(1-done.T)
+        print('target',rewards+self.gamma*valueprediction_next_states)
+        print('estimation',pred_value_states)
         critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
 
         # Advantage estimates
@@ -224,6 +233,7 @@ class Agent(object):
         # Or copy from Ex5
         act_log_prob = action_distribution.log_prob(action)
         #print("action from dist: ", action)
+        #print(action_distribution)
 
         return action, act_log_prob
 
