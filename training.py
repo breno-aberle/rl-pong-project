@@ -40,7 +40,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         #print(observation)
         # TODO: call first time stack_frames(observation/state) ?
         #Make an array of the dimension 200*200, and 4 elements, full of zeros.
-        img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
+        img_collection =  deque([np.zeros((200,200), dtype=np.int) for i in range(4)], maxlen=4)
         #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
         state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
         # Loop until the episode is over
@@ -62,13 +62,14 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
             # TODO: call second time stack_frames(observation/next_state) ?
 
-            next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
+
             # TODO: BEGIN: start of if done: (no need)
 
             # Store action's outcome (so that the agent can improve its policy)
             #agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
             #With the other naming
             if not done:
+                next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
                 agent.store_outcome(state_images, next_state_images, action_probabilities, reward, done)
             # TODO: END
                 state_images=next_state_images
@@ -110,7 +111,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
     # Training is finished - plot rewards
     if print_things:
-        plt.plot(timesteps_history)
+        plt.plot(timestep_history)
         plt.legend(["Reward", "100-episode average"])
         plt.title("AC reward history (non-episodic)")
         plt.show()
@@ -166,7 +167,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_episodes", type=int, default=200000, help="Number of episodes to train for")
+    parser.add_argument("--train_episodes", type=int, default=200, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()
 
@@ -181,4 +182,5 @@ if __name__ == "__main__":
     else:
         state_dict = torch.load(args.test)
         print("Testing...")
-        test(args.env, 100, state_dict, args.render_test)
+        policy.load_state_dict(state_dict)
+        #test(args.env, 100, state_dict, args.render_test)
