@@ -63,9 +63,7 @@ class Policy(torch.nn.Module):
         # Critic part
         # TODO: Implement
         state_val = self.fc3(x)
-        # TODO: Instantiate and return a normal distribution
-        # with mean mu and std of sigma
-        # Implement or copy from Ex5
+        # TODO: Instantiate and return a normal distribution with mean mu and std of sigma
         #action_dist = Normal(action_mean, sigma)
         action_dist = Categorical(logits=action_mean)
         # TODO: Return state value in addition to the distribution
@@ -78,8 +76,8 @@ class Agent(object):
         self.train_device = "cpu"
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.gamma = 0.98
-        self.clip_range = 0.2
+        self.gamma = 0.98  # in PPO paper 0.99
+        self.eps_clip = 0.2  # used in PPO paper
         self.states = []
         self.action_probs = []
         self.rewards = []
@@ -89,7 +87,17 @@ class Agent(object):
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
+    def ppo_loss(self, , ,):
 
+        advantage =
+        r = prob / (old_prob + 1e-10)
+
+        loss1 = r * advantage
+        loss2 = torch.clamp(r, 1-self.eps_clip, 1+self.eps_clip) * advantage
+        loss = -torch.min(loss1, loss2)
+        loss = torch.mean(loss)  # calculate expectation of loss
+
+        return loss
 
     def update_policy(self, episode_number):
         # Convert buffers to Torch tensors

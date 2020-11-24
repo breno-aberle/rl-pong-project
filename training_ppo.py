@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import cv2
 import matplotlib.pyplot as plt
-from agent import Agent, Policy
+from agent_ppo import Agent, Policy
 #from cp_cont import CartPoleEnv  # importing cartpole environment from exercise session
 from wimblepong import Wimblepong # import wimblepong environment
 import pandas as pd
