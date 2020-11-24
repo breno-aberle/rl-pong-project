@@ -16,8 +16,8 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=200000, u
     env = ParallelEnvs(env_name, processes=8, envs_per_process=8)
 
     # Get dimensionalities of actions and observations
-    action_space_dim = env.action_space.shape[-1]
-    observation_space_dim = env.observation_space.shape[-1]
+    action_space_dim = env.action_space.shape
+    observation_space_dim = env.observation_space.shape
 
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)

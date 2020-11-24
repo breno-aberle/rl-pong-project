@@ -41,7 +41,7 @@ class SimpleAi(object):
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
-
+        action=0
         return action
 
     def reset(self):
