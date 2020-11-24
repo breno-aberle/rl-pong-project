@@ -247,8 +247,6 @@ class Agent(object):
         self.done.append(done)
 
     def load_model(self):
-        #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
         """ Load already created model
         return:
             none
@@ -260,7 +258,6 @@ class Agent(object):
         return self.name
 
     def reset(self):
-
         """ Resets the agent’s state after an episode is finished
         return:
             none
