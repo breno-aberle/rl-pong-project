@@ -81,7 +81,9 @@ class Agent(object):
         self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
-    def ppo_loss(self, , ,):
+    def clipped_surrogate(self, , ,):
+        """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
+        """
 
         advantage =
         r = prob / (old_prob + 1e-10)
@@ -124,40 +126,29 @@ class Agent(object):
         states = torch.stack(states, dim=0).to(self.train_device)#.squeeze(-1)
         next_states = torch.stack(next_states, dim=0).to(self.train_device).squeeze(-1)
 
-        #print("action_probs: ", action_probs)
-        #print("rewards: ", rewards)
-        #print("states: ", states)
-        #print("next_states: ", next_states)
-        #print("done: ", done)
-
-        #print("action_probs shape: ", action_probs.shape)
-        #print("rewards shape: ", rewards.shape)
-        #print("states shape: ", states.shape)
-        #print("next_states shape: ", next_states.shape)
-        #print("done shape: ", done.shape)
-
         # Bring states in right order to be processed
         states = states.permute(0, 3, 1, 2)
         next_states = next_states.permute(0, 3, 1, 2)
 
+
         # Compute state values (NO NEED FOR THE DISTRIBUTION)
-        action_distr, pred_value_states = self.policy.forward(states)
-        nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)
+        action_distr, pred_states_value = self.policy.forward(states)
+        action_distr_next, pred_next_states_value = self.policy.forward(next_states)
 
         # Delete 1 dimensionality
-        valueprediction_next_states = (valueprediction_next_states).squeeze(-1)
-        pred_value_states = (pred_value_states).squeeze(-1)
+        pred_next_states_value = (pred_next_states_value).squeeze(-1)
+        pred_states_value = (pred_states_value).squeeze(-1)
 
         # Handle terminal states
-        valueprediction_next_states = torch.mul(valueprediction_next_states, 1-done)
+        pred_next_states_value = torch.mul(pred_next_states_value, 1-done)
 
         #Critic Loss:
-        critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
-        print('target: ', rewards+self.gamma*valueprediction_next_states)
-        print('estimation: ', pred_value_states)
+        critic_loss = F.mse_loss(pred_states_value, rewards+self.gamma*pred_next_states_value.detach())
+        print('target: ', rewards+self.gamma*pred_next_states_value)
+        print('estimation: ', pred_states_value)
 
         # Compute advantage estimates
-        advantage = rewards + self.gamma * valueprediction_next_states - pred_value_states
+        advantage = rewards + self.gamma * pred_next_states_value - pred_states_value
         # Calculate actor loss (very similar to PG)
         actor_loss = (-action_probs * advantage.detach()).mean()
 
