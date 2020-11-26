@@ -78,22 +78,43 @@ class Agent(object):
         self.name = "BeschdePong"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
         self.img_collection = []
+        self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
 
 
-    def update_policy(self, episode_number):
+    def update_policy(self, episode_number, episode_done=False):
         # Convert buffers to Torch tensors
         action_probs = torch.stack(self.action_probs, dim=0).to(self.train_device).squeeze(-1)
         rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
-        states = torch.stack(self.states, dim=0).to(self.train_device).squeeze(-1)
-        next_states = torch.stack(self.next_states, dim=0).to(self.train_device).squeeze(-1)
         done = torch.Tensor(self.done).to(self.train_device)
+        # treat states and next_states differently since they still contain raw images
+        states_raw = self.states
+        next_states_raw = self.next_states
 
+        print("self.states: ", len(self.states))
         # Clear state transition buffers
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
-        self.reset()  # reset all remaining state transition buffers
+        if episode_done == True:
+            self.reset()  # reset all remaining state transition buffers
+
+        # convert raw images to stacked images
+        self.img_collection_update = []
+        states = []
+        for i in range(len(states_raw)):
+            state_stacked = self.stack_images(states_raw[i], update=True)
+            states.append( torch.from_numpy(state_stacked).float() )
+
+        self.img_collection_update = []
+        next_states = []
+        for j in range(len(next_states_raw)):
+            next_state_stacked = self.stack_images(next_states_raw[j], update=True)
+            next_states.append( torch.from_numpy(next_state_stacked).float() )
+        print("states: ", len(states))
+
+        states = torch.stack(states, dim=0).to(self.train_device)#.squeeze(-1)
+        next_states = torch.stack(next_states, dim=0).to(self.train_device).squeeze(-1)
 
         #print("action_probs: ", action_probs)
         #print("rewards: ", rewards)
@@ -156,37 +177,57 @@ class Agent(object):
 
         return img_resized
 
-    def stack_images(self, observation):
+    def stack_images(self, observation, update=False):
         """ Stack up to four frames together
         Params:
             observation: raw 200x200 image
+            update: in case we are updating (True) we need to access different variable self.img_collection_update
         """
         # image preprocessing
         img_preprocessed = self.preprocessing(observation)
-
-        if (len(self.img_collection) == 0):  # start of new episode, use len() instead of timestep to stay Markovian
-            # img_collection get filled with zeros
-            self.img_collection = deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
-            # fill img_collection 4x with the first frame
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
-            self.img_collection.append(img_preprocessed)
-            # Stack the images in img_collection
-            img_stacked = np.stack(self.img_collection, axis=2)
+        if update == False:
+            if (len(self.img_collection) == 0):  # start of new episode, use len() instead of timestep to stay Markovian
+                # img_collection get filled with zeros
+                self.img_collection = deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
+                # fill img_collection 4x with the first frame
+                self.img_collection.append(img_preprocessed)
+                self.img_collection.append(img_preprocessed)
+                self.img_collection.append(img_preprocessed)
+                self.img_collection.append(img_preprocessed)
+                # Stack the images in img_collection
+                img_stacked = np.stack(self.img_collection, axis=2)
+            else:
+                # Delete first/oldest entry and append new image
+                self.img_collection.append(img_preprocessed)
+                # Stack the images in img_collection
+                img_stacked = np.stack(self.img_collection, axis=2)
+            return img_stacked
         else:
-            # Delete first/oldest entry and append new image
-            self.img_collection.append(img_preprocessed)
+            if (len(self.img_collection_update) == 0):  # start of new episode, use len() instead of timestep to stay Markovian
+                # img_collection get filled with zeros
+                self.img_collection_update = deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
+                # fill img_collection 4x with the first frame
+                self.img_collection_update.append(img_preprocessed)
+                self.img_collection_update.append(img_preprocessed)
+                self.img_collection_update.append(img_preprocessed)
+                self.img_collection_update.append(img_preprocessed)
+                # Stack the images in img_collection
+                img_stacked = np.stack(self.img_collection_update, axis=2)
+            else:
+                # Delete first/oldest entry and append new image
+                self.img_collection_update.append(img_preprocessed)
+                # Stack the images in img_collection
+                img_stacked = np.stack(self.img_collection_update, axis=2)
+            return img_stacked
 
-            # Stack the images in img_collection
-            img_stacked = np.stack(self.img_collection, axis=2)
-
-        return img_stacked
 
 
-    def get_action(self, img_stacked, timestep, evaluation=False):
+    def get_action(self, observation, timestep, evaluation=False):
+        # get stacked image
+        stacked_img = self.stack_images(observation)
+
         # create torch out from numpy array
-        x = torch.from_numpy(img_stacked).float().to(self.train_device)
+        x = torch.from_numpy(stacked_img).float().to(self.train_device)
 
         #Add one more dimension, batch_size=1, for the conv2d to read it
         x = x.unsqueeze(0)

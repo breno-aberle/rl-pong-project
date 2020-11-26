@@ -36,7 +36,7 @@ player = wimblepong.agent(env, player_id)
 states = []
 win1 = 0
 
-for i in range(0,episodes):
+for i in range(0, episodes):
     done = False
     while not done:
         # action1 is zero because in this example no agent is playing as player 0

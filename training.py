@@ -39,11 +39,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
         # Loop until the episode is over
         while not done:
-            # get stacked image
-            stacked_imgs = agent.stack_images(observation)
-
             # Get action from the agent, an action gets chosen based on the img_stacked processed.
-            action, action_probabilities = agent.get_action(stacked_imgs, timestep=timesteps)
+            action, action_probabilities = agent.get_action(observation, timestep=timesteps)
             previous_observation = observation
 
             # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
@@ -59,7 +56,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
             # Update the actor-critic code to perform TD(0) updates every 50 timesteps
             if timesteps%45==0 and not done:
-                agent.update_policy(episode_number)
+                agent.update_policy(episode_number, episode_done=done)
 
         if print_things:
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
@@ -76,7 +73,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
         # Let the agent do its magic (update the policy)
         #COMMENT FOR TASK 2-3 NEXT LINE - UNCOMMENT TASK 1
-        agent.update_policy(episode_number)
+        agent.update_policy(episode_number, episode_done=done)
 
     # Training is finished - plot rewards
     if print_things:
