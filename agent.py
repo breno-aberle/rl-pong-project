@@ -21,12 +21,10 @@ class Policy(torch.nn.Module):
         self.state_space = state_space
         self.action_space = action_space
         self.hidden = 512
-        #self.fc1 = torch.nn.Linear(state_space, self.hidden)
-        self.fc2_mean = torch.nn.Linear(self.hidden, 3)  # neural network for Q
-        # TODO: Add another linear layer for the critic
-        #Entry the hidden layers, output the value.
-        self.fc3 = torch.nn.Linear(self.hidden, 1)  # neural network for V
-        self.sigma = torch.nn.Parameter(torch.tensor([10.]))  # TODO: Implement learned variance (or copy from Ex5)
+        #self.fc1 = torch.nn.Linear(state_space, self.hidden)  # CNN is now first layer
+        self.fc2_mean = torch.nn.Linear(self.hidden, 3)  # neural network for Q (actor) (action-value)
+        self.fc3 = torch.nn.Linear(self.hidden, 1)  # neural network for V (critic) (state-value)
+        self.sigma = torch.nn.Parameter(torch.tensor([10.]))  # Implement learned variance during gradient update of NN's
         self.init_weights()
         # create Convolutional Neural Network: we input 4 frames of dimension of 80x80
         self.cnn = nn.Sequential(
@@ -41,7 +39,6 @@ class Policy(torch.nn.Module):
             nn.ReLU()
         )
 
-
     def init_weights(self):
         for m in self.modules():
             if type(m) is torch.nn.Linear:
@@ -50,21 +47,15 @@ class Policy(torch.nn.Module):
 
     def forward(self, x):
         # Common part: Convolutional Neural Network
-        #x = self.fc1(x)
-        #x = F.relu(x)
         x = self.cnn(x)
-        #x.squeeze(0)
 
         # Actor part
         action_mean = self.fc2_mean(x)
-        sigma = self.sigma  # TODO: Implement (or copy from Ex5)
+        sigma = self.sigma
 
         # Critic part
-        # TODO: Implement
         state_val = self.fc3(x)
-        # TODO: Instantiate and return a normal distribution
-        # with mean mu and std of sigma
-        # Implement or copy from Ex5
+        # Instantiate and return a normal distribution with mean mu and std of sigma
         #action_dist = Normal(action_mean, sigma)
         action_dist = Categorical(logits=action_mean)
 
@@ -165,31 +156,32 @@ class Agent(object):
 
         return img_resized
 
-    def stack_images(self, observation, img_collection, timestep):
+    def stack_images(self, observation):
         """ Stack up to four frames together
+        Params:
+            observation: raw 200x200 image
         """
         # image preprocessing
         img_preprocessed = self.preprocessing(observation)
 
-        if (timestep == 0):  # start of new episode
-            # img_collection get filled with zeros again
-            img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
+        if (len(self.img_collection) == 0):  # start of new episode, use len() instead of timestep to stay Markovian
+            # img_collection get filled with zeros
+            self.img_collection = deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
             # fill img_collection 4x with the first frame
-            img_collection.append(img_preprocessed)
-            img_collection.append(img_preprocessed)
-            img_collection.append(img_preprocessed)
-            img_collection.append(img_preprocessed)
+            self.img_collection.append(img_preprocessed)
+            self.img_collection.append(img_preprocessed)
+            self.img_collection.append(img_preprocessed)
+            self.img_collection.append(img_preprocessed)
             # Stack the images in img_collection
-            img_stacked = np.stack(img_collection, axis=2)
+            img_stacked = np.stack(self.img_collection, axis=2)
         else:
             # Delete first/oldest entry and append new image
-            #img_collection.pop(0)
-            img_collection.append(img_preprocessed)
+            self.img_collection.append(img_preprocessed)
 
             # Stack the images in img_collection
-            img_stacked = np.stack(img_collection, axis=2) # TODO: right axis??
+            img_stacked = np.stack(self.img_collection, axis=2)
 
-        return img_stacked, img_collection
+        return img_stacked
 
 
     def get_action(self, img_stacked, timestep, evaluation=False):
