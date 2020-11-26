@@ -62,14 +62,14 @@ class Policy(torch.nn.Module):
         #self.fc2_mean = torch.nn.Linear(self.hidden, 3)  # neural network for Q
         # create Convolutional Neural Network: we input 4 frames of dimension of 80x80
         self.cnn = nn.Sequential(
-            nn.Conv2d(frames, 32, 10, stride=5),  # (number of layers, number of filters, kernel_size e.g. 8x8, stride)
+            nn.Conv2d(frames, 32, 8, stride=4),  # (number of layers, number of filters, kernel_size e.g. 8x8, stride)
             nn.ReLU(),
-            nn.Conv2d(32, 64, 5, stride=2),
+            nn.Conv2d(32, 64, 3, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, 3, stride=2),
+            nn.Conv2d(64, 64, 3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(4096, 512),
+            nn.Linear(3136, 512),
             nn.ReLU()
         )
 
@@ -191,9 +191,9 @@ class Agent(object):
         img_norm = img_gray / 255.0
 
         # Downsampling: we receive squared image (e.g. 200x200) and downsample by x2.5 to (80x80)
-        #img_resized = cv2.resize(img_norm, dsize=(80, 80))
+        img_resized = cv2.resize(img_norm, dsize=(80, 80))
         #img_resized = img_norm[::2.5,::2.5]
-        return img_norm
+        return img_resized
 
     def stack_images(self, observation, img_collection, timestep):
         """ Stack up to four frames together
@@ -203,7 +203,7 @@ class Agent(object):
 
         if (timestep == 0):  # start of new episode
             # img_collection get filled with zeros again
-            img_collection =  deque([np.zeros((200,200), dtype=np.int) for i in range(4)], maxlen=4)
+            img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
             # fill img_collection 4x with the first frame
             img_collection.append(img_preprocessed)
             img_collection.append(img_preprocessed)
@@ -233,11 +233,13 @@ class Agent(object):
 
     def load_model(self):
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
+        #policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
         """ Load already created model
         return:
             none
         """
+        weights = torch.load("VersusAI2.mdl", map_location=torch.device("cpu"))
+        self.policy_net.load_state_dict(weights, strict=False)
 
     def get_name(self):
         """ Interface function to retrieve the agents name

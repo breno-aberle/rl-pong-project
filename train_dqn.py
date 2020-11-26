@@ -48,8 +48,8 @@ if "CartPole" in env_name:
     batch_size = 256
 elif "WimblepongVisualSimpleAI-v0" in env_name:
     TARGET_UPDATE = 10
-    glie_a = 400
-    num_episodes = 4500
+    glie_a = 200
+    num_episodes = 7500
     hidden = 64
     gamma = 0.99
     replay_buffer_size = 100000
@@ -59,7 +59,7 @@ else:
 
 # The output will be written to your folder ./runs/CURRENT_DATETIME_HOSTNAME,
 # Where # is the consecutive number the script was run
-exp_name = 'DUMB-AI2-CNN200200'
+exp_name = 'DUMB-AI2-LEVELTRY3'
 experiment_name = exp_name
 data_path = os.path.join('data', experiment_name)
 models_path = f"{data_path}/models"
@@ -73,7 +73,7 @@ observation_space_dim = env.observation_space.shape
 
 # Task 4 - DQN
 agent = DQNAgent(env_name, observation_space_dim, action_space_dim, replay_buffer_size, batch_size, hidden, gamma)
-
+agent.load_model()
 # Training loop
 cumulative_rewards = []
 totaltimesteps = 0
@@ -84,10 +84,10 @@ for ep in range(num_episodes):
     observation = env.reset()
     done = False
     observation = np.array(observation)
-    img_collection =  deque([np.zeros((200,200), dtype=np.int) for i in range(4)], maxlen=4)
+    img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
     #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
     state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
-    eps = glie_a/(glie_a+ep)
+    eps = 0.1
     cum_reward = 0
     while not done:
         # Select and perform an action
@@ -127,9 +127,12 @@ for ep in range(num_episodes):
 #    # Save the policy
 #    # Uncomment for Task 4
     if ep % 400 == 0:
-        torch.save(agent.policy_net.state_dict(),"BasicRL3_%s_%d.mdl" % (env_name, ep))
+        torch.save(agent.policy_net.state_dict(),"IAAFTERv3_%s_%d.mdl" % (env_name, ep))
 
 plot_rewards(cumulative_rewards)
 print('Complete')
 plt.ioff()
 plt.show()
+
+
+

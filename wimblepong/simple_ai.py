@@ -34,14 +34,16 @@ class SimpleAi(object):
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
-        if abs(y_diff) < 2:
+        randomnumber=0
+        randomnumber= int(32*random.random())
+        if abs(y_diff) < 2+randomnumber:
             action = 0  # Stay
         else:
             if y_diff > 0:
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
-        action=0
+        #action=0
         return action
 
     def reset(self):
