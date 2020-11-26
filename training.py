@@ -5,8 +5,7 @@ import argparse
 import cv2
 import matplotlib.pyplot as plt
 from agent import Agent, Policy
-#from cp_cont import CartPoleEnv  # importing cartpole environment from exercise session
-from wimblepong import Wimblepong # import wimblepong environment
+from wimblepong import Wimblepong  # import wimblepong-environment
 import pandas as pd
 from PIL import Image
 from collections import deque

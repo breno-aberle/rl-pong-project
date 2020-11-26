@@ -49,12 +49,11 @@ class Policy(torch.nn.Module):
                 torch.nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        # Common part
+        # Common part: Convolutional Neural Network
         #x = self.fc1(x)
         #x = F.relu(x)
         x = self.cnn(x)
         #x.squeeze(0)
-        #print("forward x: ", x.shape)
 
         # Actor part
         action_mean = self.fc2_mean(x)
@@ -68,9 +67,9 @@ class Policy(torch.nn.Module):
         # Implement or copy from Ex5
         #action_dist = Normal(action_mean, sigma)
         action_dist = Categorical(logits=action_mean)
-        # TODO: Return state value in addition to the distribution
 
-        return action_dist , state_val
+        # Return state value in addition to the distribution
+        return action_dist, state_val
 
 
 class Agent(object):
@@ -87,6 +86,7 @@ class Agent(object):
         self.done = []
         self.name = "BeschdePong"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
+        self.img_collection = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
 
@@ -96,12 +96,13 @@ class Agent(object):
         action_probs = torch.stack(self.action_probs, dim=0).to(self.train_device).squeeze(-1)
         rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
         states = torch.stack(self.states, dim=0).to(self.train_device).squeeze(-1)
-        #print('states hape',states.shape)
         next_states = torch.stack(self.next_states, dim=0).to(self.train_device).squeeze(-1)
         done = torch.Tensor(self.done).to(self.train_device)
+
         # Clear state transition buffers
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
+        self.reset()  # reset all remaining state transition buffers
 
         #print("action_probs: ", action_probs)
         #print("rewards: ", rewards)
@@ -115,41 +116,36 @@ class Agent(object):
         #print("next_states shape: ", next_states.shape)
         #print("done shape: ", done.shape)
 
-
-        #print("states: ", states.shape)
-
-        # TODO: Compute state values (NO NEED FOR THE DISTRIBUTION)
+        # Bring states in right order to be processed
         states = states.permute(0, 3, 1, 2)
-        #print(states.shape)
-        next_states = next_states.permute(0,3,1,2)
-        action_distr, pred_value_states = self.policy.forward(states)
-        nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)  ##### COMPUTED using the forward function
+        next_states = next_states.permute(0, 3, 1, 2)
 
-        #Critic Loss:
+        # Compute state values (NO NEED FOR THE DISTRIBUTION)
+        action_distr, pred_value_states = self.policy.forward(states)
+        nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)
+
+        # Delete 1 dimensionality
         valueprediction_next_states = (valueprediction_next_states).squeeze(-1)
         pred_value_states = (pred_value_states).squeeze(-1)
-        #print(valueprediction_next_states.shape)
-        #print(done.shape)
-        valueprediction_next_states = torch.mul(valueprediction_next_states, 1-done)
-        #valueprediction_next_states = valueprediction_next_states*(1-done.T)
-        print('target',rewards+self.gamma*valueprediction_next_states)
-        print('estimation',pred_value_states)
-        critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
 
-        # Advantage estimates
-        # TODO: Compute advantage estimates
+        # Handle terminal states
+        valueprediction_next_states = torch.mul(valueprediction_next_states, 1-done)
+
+        #Critic Loss:
+        critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
+        print('target: ', rewards+self.gamma*valueprediction_next_states)
+        print('estimation: ', pred_value_states)
+
+        # Compute advantage estimates
         advantage = rewards + self.gamma * valueprediction_next_states - pred_value_states
-        # TODO: Calculate actor loss (very similar to PG)
+        # Calculate actor loss (very similar to PG)
         actor_loss = (-action_probs * advantage.detach()).mean()
 
-        # TODO: Compute the gradients of loss w.r.t. network parameters
-        # Or copy from Ex5
+        # Compute the gradients of loss w.r.t. network parameters
         loss = critic_loss + actor_loss
-        #print(loss)
         loss.backward()
 
-        # TODO: Update network parameters using self.optimizer and zero gradients
-        # Or copy from Ex5
+        # Update network parameters using self.optimizer and zero gradients
         self.optimizer.step()
         self.optimizer.zero_grad()
 
@@ -159,7 +155,6 @@ class Agent(object):
             observation: image of pong
         """
         # Grayscaling
-        #img_gray = rgb2gray(observation)
         img_gray = np.dot(observation, [0.2989, 0.5870, 0.1140]).astype(np.uint8)
 
         # Normalize pixel values
@@ -167,7 +162,7 @@ class Agent(object):
 
         # Downsampling: we receive squared image (e.g. 200x200) and downsample by x2.5 to (80x80)
         img_resized = cv2.resize(img_norm, dsize=(80, 80))
-        #img_resized = img_norm[::2.5,::2.5]
+
         return img_resized
 
     def stack_images(self, observation, img_collection, timestep):
@@ -198,42 +193,26 @@ class Agent(object):
 
 
     def get_action(self, img_stacked, timestep, evaluation=False):
-        # stack Image
-
-
-
-
         # create torch out from numpy array
         x = torch.from_numpy(img_stacked).float().to(self.train_device)
-        #print("stacked image", x)
-        #print("stacked image shape", x.shape)
 
         #Add one more dimension, batch_size=1, for the conv2d to read it
         x = x.unsqueeze(0)
-        #print("dimension of batch added", x.shape)
 
         # Change the order, so that the channels are at the beginning is expected: (1*4*80*80) = (batch size, number of channels, height, width)
         x = x.permute(0, 3, 1, 2)
-        #print("After permutation: ", x.shape)
 
-        # TODO: Pass state x through the policy network
-        # Or copy from Ex5
+        # Pass state x through the policy network
         action_distribution, __ = self.policy.forward(x)
-        # TODO: Return mean if evaluation, else sample from the distribution
-        # returned by the policy
-        #print("action_distribution", action_distribution)
 
-        # Or copy from Ex5
+        # Get action: Return mean if evaluation, else sample from the distribution (returned by the policy)
         if evaluation:
             action = action_distribution.mean()
         else:
             action = action_distribution.sample()
 
-        # TODO: Calculate the log probability of the action
-        # Or copy from Ex5
+        # Calculate the log probability of the action
         act_log_prob = action_distribution.log_prob(action)
-        #print("action from dist: ", action)
-        #print(action_distribution)
 
         return action, act_log_prob
 
@@ -247,12 +226,11 @@ class Agent(object):
         self.done.append(done)
 
     def load_model(self):
+        """ Load already created model
+        """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
         policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
-        """ Load already created model
-        return:
-            none
-        """
+
 
     def get_name(self):
         """ Interface function to retrieve the agents name
@@ -260,9 +238,6 @@ class Agent(object):
         return self.name
 
     def reset(self):
-
-        """ Resets the agent’s state after an episode is finished
-        return:
-            none
+        """ Resets all memories and buffers
         """
-        # TODO: Reset the after one point to the middle
+        self.img_collection = []
