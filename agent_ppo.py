@@ -69,7 +69,7 @@ class Agent(object):
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
         self.gamma = 0.98
-        self.clip_range = 0.2
+        self.eps_clip = 0.2
         self.states = []
         self.action_probs = []
         self.rewards = []
@@ -81,7 +81,17 @@ class Agent(object):
         self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
+    def ppo_loss(self, , ,):
 
+        advantage =
+        r = prob / (old_prob + 1e-10)
+
+        loss1 = r * advantage
+        loss2 = torch.clamp(r, 1-self.eps_clip, 1+self.eps_clip) * advantage
+        loss = -torch.min(loss1, loss2)
+        loss = torch.mean(loss)  # calculate expectation of loss
+
+        return loss
 
     def update_policy(self, episode_number, episode_done=False):
         # Convert buffers to Torch tensors
@@ -92,7 +102,6 @@ class Agent(object):
         states_raw = self.states
         next_states_raw = self.next_states
 
-        print("self.states: ", len(self.states))
         # Clear state transition buffers
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
@@ -111,7 +120,6 @@ class Agent(object):
         for j in range(len(next_states_raw)):
             next_state_stacked = self.stack_images(next_states_raw[j], update=True)
             next_states.append( torch.from_numpy(next_state_stacked).float() )
-        print("states: ", len(states))
 
         states = torch.stack(states, dim=0).to(self.train_device)#.squeeze(-1)
         next_states = torch.stack(next_states, dim=0).to(self.train_device).squeeze(-1)
