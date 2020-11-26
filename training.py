@@ -5,8 +5,7 @@ import argparse
 import cv2
 import matplotlib.pyplot as plt
 from agent import Agent, Policy
-#from cp_cont import CartPoleEnv  # importing cartpole environment from exercise session
-from wimblepong import Wimblepong # import wimblepong environment
+from wimblepong import Wimblepong  # import wimblepong-environment
 import pandas as pd
 from PIL import Image
 from collections import deque
@@ -28,7 +27,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
     average_reward_history = []
-    counter=0
+    counter = 0
+
     # Run actual training
     for episode_number in range(train_episodes):
         reward_sum, timesteps = 0, 0
@@ -36,61 +36,27 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         # Reset the environment and observe the initial state
         observation = env.reset()
         observation = np.array(observation)
-        #observation = cv2.cvtColor(np.array(observation), cv2.COLOR_RGB2GRAY)
-        #print(observation)
-        # TODO: call first time stack_frames(observation/state) ?
-        #Make an array of the dimension 200*200, and 4 elements, full of zeros.
-        img_collection =  deque([np.zeros((200,200), dtype=np.int) for i in range(4)], maxlen=4)
-        #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
-        state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
+
         # Loop until the episode is over
         while not done:
-
             # Get action from the agent, an action gets chosen based on the img_stacked processed.
-            action, action_probabilities = agent.get_action(state_images, timestep=timesteps)
-            #We save to previous observation, the img_stacked corresponding to the state before taking the action
-            #previous_observation = img_stacked
-            #State_images
+            action, action_probabilities = agent.get_action(observation, timestep=timesteps)
+            previous_observation = observation
 
-            #print("action: ", action)
-            #print("action_probabilities: ", action_probabilities)
-
-            # Perform the action on the environment, get new state and reward
-            #We do a new action
-            #Now we perform a new step, to see what happens with the action in our current state, the result is the enxt state
+            # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
             observation, reward, done, info = env.step(action.detach().numpy())
 
-            # TODO: call second time stack_frames(observation/next_state) ?
-
-
-            # TODO: BEGIN: start of if done: (no need)
-
             # Store action's outcome (so that the agent can improve its policy)
-            #agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
-            #With the other naming
-            if not done:
-                next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
-                agent.store_outcome(state_images, next_state_images, action_probabilities, reward, done)
-            # TODO: END
-                state_images=next_state_images
-            else:
-                observation = observation*0
-                # We process the images to get the proper stat rather than just the observation.
-                next_state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
-                agent.store_outcome(state_images, next_state_images, action_probabilities, reward, done)
-
+            agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
 
             # Store total episode reward
             reward_sum += reward
             timesteps += 1
             counter += 1
-            ###COMMENT FOR TASK 1(NEXT two lines)-UNCOMMENT FOR TASK 2-3
+
+            # Update the actor-critic code to perform TD(0) updates every 50 timesteps
             if timesteps%45==0 and not done:
-                agent.update_policy(episode_number)
-
-        #We have to send a image all black/all white, so that the NN knows when that happend the point has finished.
-        # Either sending the function doen and getting that as an if inside the preprocessing, or something like this.
-
+                agent.update_policy(episode_number, episode_done=done)
 
         if print_things:
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
@@ -107,7 +73,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
 
         # Let the agent do its magic (update the policy)
         #COMMENT FOR TASK 2-3 NEXT LINE - UNCOMMENT TASK 1
-        agent.update_policy(episode_number)
+        agent.update_policy(episode_number, episode_done=done)
 
     # Training is finished - plot rewards
     if print_things:
