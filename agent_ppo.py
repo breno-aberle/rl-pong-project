@@ -81,11 +81,12 @@ class Agent(object):
         self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
-    def clipped_surrogate(self, , ,):
+    def clipped_surrogate(self):
         """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
         """
 
-        advantage =
+
+        advantage = 0
         r = prob / (old_prob + 1e-10)
 
         loss1 = r * advantage
