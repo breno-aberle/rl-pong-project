@@ -81,20 +81,28 @@ class Agent(object):
         self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
-    def clipped_surrogate(self):
+    def clipped_surrogate(self, new_action_probs, old_action_probs, advantage):
         """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
+        params:
+
+        return:
+            loss: PPO loss
         """
+        # Get new and old action_probs
+        new_probs =
+        old_probs =
 
+        # Calculate ratio of new and old action_probs
+        ratio = new_probs / (old_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
+        # Clamp ratio
+        clip = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip)
+        # Clipped surrogate is minima
+        clipped_surrogate = torch.min(ratio*advantage, clip*advantage)
 
-        advantage = 0
-        r = prob / (old_prob + 1e-10)
+        # Calculate the estimation by taking the mean of all three parts
+        loss_ppo = torch.mean(-clipped_surrogate)  # TODO: negative or not?
 
-        loss1 = r * advantage
-        loss2 = torch.clamp(r, 1-self.eps_clip, 1+self.eps_clip) * advantage
-        loss = -torch.min(loss1, loss2)
-        loss = torch.mean(loss)  # calculate expectation of loss
-
-        return loss
+        return loss_ppo
 
     def update_policy(self, episode_number, episode_done=False):
         # Convert buffers to Torch tensors
@@ -153,9 +161,13 @@ class Agent(object):
         # Calculate actor loss (very similar to PG)
         actor_loss = (-action_probs * advantage.detach()).mean()
 
-        # Compute the gradients of loss w.r.t. network parameters
+        # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
         loss = critic_loss + actor_loss
         loss.backward()
+
+        # Loss PPO:
+        loss_ppo = self.clipped_surrogate(advantage)
+        loss_ppo.backward()
 
         # Update network parameters using self.optimizer and zero gradients
         self.optimizer.step()
