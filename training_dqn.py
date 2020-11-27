@@ -48,18 +48,18 @@ if "CartPole" in env_name:
     batch_size = 256
 elif "WimblepongVisualSimpleAI-v0" in env_name:
     TARGET_UPDATE = 10
-    glie_a = 200
-    num_episodes = 7500
+    eps = 1.0
+    num_episodes = 25000
     hidden = 64
     gamma = 0.99
-    replay_buffer_size = 100000
-    batch_size = 128
+    replay_buffer_size = 40000
+    batch_size = 256
 else:
     raise ValueError("Please provide hyperparameters for %s" % env_name)
 
 # The output will be written to your folder ./runs/CURRENT_DATETIME_HOSTNAME,
 # Where # is the consecutive number the script was run
-exp_name = 'DUMB-AI2-LEVELTRY3'
+exp_name = 'DUMB-AI-v02'
 experiment_name = exp_name
 data_path = os.path.join('data', experiment_name)
 models_path = f"{data_path}/models"
@@ -87,24 +87,22 @@ for ep in range(num_episodes):
     img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
     #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
     state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
-    eps = 0.1
+    eps = eps*0.9995
+    if eps<0.07:
+        eps=0.07
     cum_reward = 0
     while not done:
         # Select and perform an action
         action = agent.get_action(state_images, eps)
         next_observation, reward, done, _ = env.step(action)
         cum_reward += reward
-        if not done:
-            next_state_images, img_collection = agent.stack_images(next_observation,img_collection, timestep=timesteps)
-            next_observation, reward, done, _ = env.step(action)
-            cum_reward += reward
-        else:
+        if done:
             next_observation = next_observation*0
         # We process the images to get the proper stat rather than just the observation.
         next_state_images, img_collection = agent.stack_images(next_observation,img_collection, timestep=timesteps)
-
         timesteps += 1
         totaltimesteps += 1
+        env.render()
 
         # Task 1: TODO: Update the Q-values
         #agent.single_update(state, action, next_state, reward, done)
@@ -121,13 +119,14 @@ for ep in range(num_episodes):
     print('Timesteps:',timesteps,'Reward:', cum_reward)
     # Update the target network, copying all weights and biases in DQN
     # Uncomment for Task 4
+
     if ep % TARGET_UPDATE == 0:
         agent.update_target_network()
 #
 #    # Save the policy
 #    # Uncomment for Task 4
     if ep % 400 == 0:
-        torch.save(agent.policy_net.state_dict(),"IAAFTERv3_%s_%d.mdl" % (env_name, ep))
+        torch.save(agent.policy_net.state_dict(),"IAv0-22%s_%d.mdl" % (env_name, ep))
 
 plot_rewards(cumulative_rewards)
 print('Complete')

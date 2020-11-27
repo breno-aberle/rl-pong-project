@@ -238,7 +238,7 @@ class Agent(object):
         return:
             none
         """
-        weights = torch.load("VersusAI2.mdl", map_location=torch.device("cpu"))
+        weights = torch.load("AI0v2.mdl", map_location=torch.device("cpu"))
         self.policy_net.load_state_dict(weights, strict=False)
 
     def get_name(self):
