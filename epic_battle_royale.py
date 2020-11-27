@@ -62,7 +62,7 @@ def run_test(id1, agent1_dir, id2,  agent2_dir, queue, games, render):
     # Add the 2nd agent to path
     sys.path.insert(0, agent2_dir)
 
-    # reload the agent module using agent.py from the new dir
+    # reload the agent module using agent_ac.py from the new dir
     try:
         importlib.reload(agent)
     except Exception as e:
@@ -126,14 +126,14 @@ def get_directories(top_dir):
     for dir, subdirs, files in subdir_gen:
         if "__pycache__" in dir:
             continue
-        if "agent.py" not in files:
-            print("Warn: No agent.py found in %s. Skipping." % dir)
+        if "agent_ac.py" not in files:
+            print("Warn: No agent_ac.py found in %s. Skipping." % dir)
             continue
         subdir_list.append(dir)
         print("%s added to directory list." % dir)
     subdir_list.sort()
 
-    # Return a list of folders with agent.py
+    # Return a list of folders with agent_ac.py
     return subdir_list
 
 

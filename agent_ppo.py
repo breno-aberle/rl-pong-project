@@ -69,7 +69,7 @@ class Agent(object):
         self.policy = policy.to(self.train_device)
         self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
         self.gamma = 0.98
-        self.clip_range = 0.2
+        self.eps_clip = 0.2
         self.states = []
         self.action_probs = []
         self.rewards = []
@@ -81,7 +81,20 @@ class Agent(object):
         self.img_collection_update = []
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
+    def clipped_surrogate(self):
+        """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
+        """
 
+
+        advantage = 0
+        r = prob / (old_prob + 1e-10)
+
+        loss1 = r * advantage
+        loss2 = torch.clamp(r, 1-self.eps_clip, 1+self.eps_clip) * advantage
+        loss = -torch.min(loss1, loss2)
+        loss = torch.mean(loss)  # calculate expectation of loss
+
+        return loss
 
     def update_policy(self, episode_number, episode_done=False):
         # Convert buffers to Torch tensors
@@ -92,7 +105,6 @@ class Agent(object):
         states_raw = self.states
         next_states_raw = self.next_states
 
-        print("self.states: ", len(self.states))
         # Clear state transition buffers
         self.states, self.action_probs, self.rewards = [], [], []
         self.next_states, self.done = [], []
@@ -111,45 +123,33 @@ class Agent(object):
         for j in range(len(next_states_raw)):
             next_state_stacked = self.stack_images(next_states_raw[j], update=True)
             next_states.append( torch.from_numpy(next_state_stacked).float() )
-        print("states: ", len(states))
 
         states = torch.stack(states, dim=0).to(self.train_device)#.squeeze(-1)
         next_states = torch.stack(next_states, dim=0).to(self.train_device).squeeze(-1)
-
-        #print("action_probs: ", action_probs)
-        #print("rewards: ", rewards)
-        #print("states: ", states)
-        #print("next_states: ", next_states)
-        #print("done: ", done)
-
-        #print("action_probs shape: ", action_probs.shape)
-        #print("rewards shape: ", rewards.shape)
-        #print("states shape: ", states.shape)
-        #print("next_states shape: ", next_states.shape)
-        #print("done shape: ", done.shape)
 
         # Bring states in right order to be processed
         states = states.permute(0, 3, 1, 2)
         next_states = next_states.permute(0, 3, 1, 2)
 
+
         # Compute state values (NO NEED FOR THE DISTRIBUTION)
-        action_distr, pred_value_states = self.policy.forward(states)
-        nextaction_distribution, valueprediction_next_states = self.policy.forward(next_states)
+        action_distr, pred_states_value = self.policy.forward(states)
+        action_distr_next, pred_next_states_value = self.policy.forward(next_states)
 
         # Delete 1 dimensionality
-        valueprediction_next_states = (valueprediction_next_states).squeeze(-1)
-        pred_value_states = (pred_value_states).squeeze(-1)
+        pred_next_states_value = (pred_next_states_value).squeeze(-1)
+        pred_states_value = (pred_states_value).squeeze(-1)
 
         # Handle terminal states
-        valueprediction_next_states = torch.mul(valueprediction_next_states, 1-done)
+        pred_next_states_value = torch.mul(pred_next_states_value, 1-done)
 
         #Critic Loss:
-        critic_loss = F.mse_loss(pred_value_states, rewards+self.gamma*valueprediction_next_states.detach())
-        print('target: ', rewards+self.gamma*valueprediction_next_states)
-        print('estimation: ', pred_value_states)
+        critic_loss = F.mse_loss(pred_states_value, rewards+self.gamma*pred_next_states_value.detach())
+        print('target: ', rewards+self.gamma*pred_next_states_value)
+        print('estimation: ', pred_states_value)
 
         # Compute advantage estimates
-        advantage = rewards + self.gamma * valueprediction_next_states - pred_value_states
+        advantage = rewards + self.gamma * pred_next_states_value - pred_states_value
         # Calculate actor loss (very similar to PG)
         actor_loss = (-action_probs * advantage.detach()).mean()
 

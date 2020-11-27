@@ -262,8 +262,9 @@ class Agent(object):
         """ Load already created model
         """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
-
+        #policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
+        weights = torch.load("model2_WimblepongVisualSimpleAI-v0_0.mdl", map_location=torch.device("cpu"))
+        self.policy.load_state_dict(weights, strict=False)
 
     def get_name(self):
         """ Interface function to retrieve the agents name

@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import cv2
 import matplotlib.pyplot as plt
-from agent import Agent, Policy
+from agent_ppo import Agent, Policy
 from wimblepong import Wimblepong  # import wimblepong-environment
 import pandas as pd
 from PIL import Image
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_episodes", type=int, default=200, help="Number of episodes to train for")
+    parser.add_argument("--train_episodes", type=int, default=5000, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()
 
