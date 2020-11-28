@@ -47,6 +47,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
             observation, reward, done, info = env.step(action.detach().numpy())
 
+            env.render()
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
 
@@ -76,6 +77,10 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         #COMMENT FOR TASK 2-3 NEXT LINE - UNCOMMENT TASK 1
         agent.update_policy(episode_number, episode_done=done)
 
+        # save model:
+        if episode_number % 10000 == 0 and episode_number != 0:
+            torch.save(agent.policy.state_dict(), "AC_v1_%s_%d.mdl" % (env_name, episode_number))
+
     # Training is finished - plot rewards
     if print_things:
         plt.plot(timestep_history)
@@ -93,7 +98,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
                          # TODO: Change algorithm name for plots, if you want
                          "algorithm": ["Non-Episodic AC"]*len(reward_history),
                          "reward": reward_history})
-    torch.save(agent.policy.state_dict(), "model2_%s_%d.mdl" % (env_name, train_run_id))
+    torch.save(agent.policy.state_dict(), "AC_v1_%s_%d.mdl" % (env_name, train_run_id))
     return data
 
 
@@ -134,7 +139,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_episodes", type=int, default=30000, help="Number of episodes to train for")
+    parser.add_argument("--train_episodes", type=int, default=2000, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()
 
