@@ -2,7 +2,7 @@ import gym
 from gym.wrappers import TimeLimit, Monitor
 import numpy as np
 from matplotlib import pyplot as plt
-from dqn_agent import Agent as DQNAgent  # Task 4
+from agent_dqn import Agent as DQNAgent  # Task 4
 from itertools import count
 import torch
 import cv2
@@ -47,25 +47,25 @@ if "CartPole" in env_name:
     replay_buffer_size = 500000
     batch_size = 256
 elif "WimblepongVisualSimpleAI-v0" in env_name:
-    TARGET_UPDATE = 10
+    TARGET_UPDATE = 15
     eps = 1.0
     num_episodes = 25000
     hidden = 64
     gamma = 0.99
     replay_buffer_size = 40000
-    batch_size = 256
+    batch_size = 128
 else:
     raise ValueError("Please provide hyperparameters for %s" % env_name)
 
 # The output will be written to your folder ./runs/CURRENT_DATETIME_HOSTNAME,
 # Where # is the consecutive number the script was run
-exp_name = 'DUMB-AI-v02'
+""" exp_name = 'SCRATCH'
 experiment_name = exp_name
 data_path = os.path.join('data', experiment_name)
 models_path = f"{data_path}/models"
 import wandb
 wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True, config=vars(args), name=exp_name, monitor_gym=True, save_code=True)
-writer = SummaryWriter(f"/tmp/{exp_name}")
+writer = SummaryWriter(f"/tmp/{exp_name}") """
 
 action_space_dim = env.action_space.shape
 observation_space_dim = env.observation_space.shape
@@ -88,8 +88,8 @@ for ep in range(num_episodes):
     #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
     state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
     eps = eps*0.9995
-    if eps<0.07:
-        eps=0.07
+    if eps<0.08:
+        eps=0.08
     cum_reward = 0
     while not done:
         # Select and perform an action
@@ -102,8 +102,6 @@ for ep in range(num_episodes):
         next_state_images, img_collection = agent.stack_images(next_observation,img_collection, timestep=timesteps)
         timesteps += 1
         totaltimesteps += 1
-        env.render()
-
         # Task 1: TODO: Update the Q-values
         #agent.single_update(state, action, next_state, reward, done)
         # Task 2: TODO: Store transition and batch-update Q-values
@@ -114,9 +112,24 @@ for ep in range(num_episodes):
         # Move to the next state
         state_images = next_state_images
     cumulative_rewards.append(cum_reward)
-    writer.add_scalar('Training ' + env_name, cum_reward, ep)
-    writer.add_scalar('Training Timesteps ' + env_name, timesteps, ep)
+"""     writer.add_scalar('Training ' + env_name, cum_reward, ep)
+    writer.add_scalar('Training Timesteps ' + env_name, timesteps, ep) """
     print('Timesteps:',timesteps,'Reward:', cum_reward)
+    #Store data
+    timestep_history.append(timesteps)
+    if ep > 100:
+        avg = np.mean(cumulative_rewards[-100:])
+        avg2 = np.mean(timestep_history[-100:])
+    else:
+        avg = np.mean(cumulative_rewards)
+        avg2 = np.mean(timestep_history)
+        average_reward_history.append(avg)
+        average_timestep_history.append(avg2)
+    print('Total Avg Timesteps:',avg2,'Reward:', avg)
+    print('Avg . 100 . Timesteps:',avg2,'Reward:', avg)
+
+
+
     # Update the target network, copying all weights and biases in DQN
     # Uncomment for Task 4
 
@@ -125,8 +138,8 @@ for ep in range(num_episodes):
 #
 #    # Save the policy
 #    # Uncomment for Task 4
-    if ep % 400 == 0:
-        torch.save(agent.policy_net.state_dict(),"IAv0-22%s_%d.mdl" % (env_name, ep))
+    if ep % 500 == 0:
+        torch.save(agent.policy_net.state_dict(),"IA0000%s_%d.mdl" % (env_name, ep))
 
 plot_rewards(cumulative_rewards)
 print('Complete')

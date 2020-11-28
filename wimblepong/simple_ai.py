@@ -31,13 +31,13 @@ class SimpleAi(object):
         my_y = player.y
         # Get the ball position in the game arena
         ball_y = self.env.ball.y + (random.random()*self.bpe-self.bpe/2)
-        if my_y<140 and my_y>130:
+        if my_y<138 and my_y>132:
             self.timestep=0
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
         randomnumber=0
-        randomnumber= int(4*random.random())
+        randomnumber= int(45*random.random())
         self.timestep += 1
         if abs(y_diff) < 2+randomnumber:
             action = 0  # Stay
@@ -46,8 +46,6 @@ class SimpleAi(object):
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
-        if self.timestep>16:
-            action=0
         return action
 
     def reset(self):
