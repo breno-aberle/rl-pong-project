@@ -132,7 +132,7 @@ class Ball():
             d = 1
         else:
             d = -1
-        up_down = random.choice([False, False])
+        up_down = random.choice([True, False])
         if up_down == True:
             u = 1
         else:

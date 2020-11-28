@@ -222,15 +222,17 @@ class Agent(object):
 
 
 
-    def get_action(self, observation, timestep, evaluation=False):
+    def get_action(self, observation, evaluation=False):
         # get stacked image
+
         stacked_img = self.stack_images(observation)
 
         # create torch out from numpy array
         x = torch.from_numpy(stacked_img).float().to(self.train_device)
 
         #Add one more dimension, batch_size=1, for the conv2d to read it
-        x = x.unsqueeze(0)
+        #x = x.unsqueeze(0)
+        print(x.shape)
 
         # Change the order, so that the channels are at the beginning is expected: (1*4*80*80) = (batch size, number of channels, height, width)
         x = x.permute(0, 3, 1, 2)

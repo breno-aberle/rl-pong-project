@@ -14,6 +14,8 @@ class SimpleAi(object):
         self.bpe = 4                
         self.name = "SimpleAI"
         self.timestep = 0
+        self.counter = 0
+        self.target = 35
     def get_name(self):
         """
         Interface function to retrieve the agents name
@@ -33,12 +35,18 @@ class SimpleAi(object):
         ball_y = self.env.ball.y + (random.random()*self.bpe-self.bpe/2)
         if my_y<138 and my_y>132:
             self.timestep=0
+        if self.counter%20000:
+            self.target=self.target-2
+        if self.target < 2:
+            self.target=0
+
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
         randomnumber=0
-        randomnumber= int(45*random.random())
-        self.timestep += 1
+
+        randomnumber= int(self.target*random.random())
+        self.counter += 1
         if abs(y_diff) < 2+randomnumber:
             action = 0  # Stay
         else:

@@ -73,7 +73,7 @@ observation_space_dim = env.observation_space.shape
 
 # Task 4 - DQN
 agent = DQNAgent(env_name, observation_space_dim, action_space_dim, replay_buffer_size, batch_size, hidden, gamma)
-#agent.load_model()
+agent.load_model()
 # Training loop
 cumulative_rewards = []
 timestep_history = []
@@ -95,7 +95,7 @@ for ep in range(num_episodes):
     if eps<0.10:
         eps=0.10
     cum_reward = 0
-    #eps=0
+    eps=0
     while not done:
         # Select and perform an action
         action = agent.get_action(state_images, eps)
@@ -107,7 +107,7 @@ for ep in range(num_episodes):
         next_state_images, img_collection = agent.stack_images(next_observation,img_collection, timestep=timesteps)
         timesteps += 1
         totaltimesteps += 1
-        #env.render()
+        env.render()
         # Task 1: TODO: Update the Q-values
         #agent.single_update(state, action, next_state, reward, done)
         # Task 2: TODO: Store transition and batch-update Q-values

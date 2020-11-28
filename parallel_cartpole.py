@@ -3,7 +3,7 @@ import gym
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
-from agent import Agent, Policy
+from agent_ac import Agent, Policy
 from wimblepong import Wimblepong
 from parallel_env import ParallelEnvs
 import pandas as pd
@@ -13,7 +13,7 @@ import pandas as pd
 def train(env_name, print_things=True, train_run_id=0, train_timesteps=200000, update_steps=50):
     # Create a Gym environment
     # This creates 64 parallel envs running in 8 processes (8 envs each)
-    env = ParallelEnvs(env_name, processes=8, envs_per_process=8)
+    env = ParallelEnvs(env_name, processes=4, envs_per_process=4)
 
     # Get dimensionalities of actions and observations
     action_space_dim = env.action_space.shape
@@ -34,6 +34,7 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=200000, u
     # Loop forever
     for timestep in range(train_timesteps):
         # Get action from the agent
+        print(observation.shape)
         action, action_probabilities = agent.get_action(observation)
         previous_observation = observation
 
@@ -113,7 +114,7 @@ def test(env_name, episodes, params, render):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
-    parser.add_argument("--env", type=str, default="ContinuousCartPole-v0", help="Environment to use")
+    parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
     parser.add_argument("--train_timesteps", type=int, default=200000, help="Number of timesteps to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     args = parser.parse_args()
