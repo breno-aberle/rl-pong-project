@@ -127,12 +127,12 @@ class Ball():
         self.update_rect()
         # Reset ball in random direction
         bounce_angle = np.random.random() * 40
-        side = random.choice([True, False])
+        side = random.choice([False, False])
         if side == True:
             d = 1
         else:
             d = -1
-        up_down = random.choice([True, False])
+        up_down = random.choice([False, False])
         if up_down == True:
             u = 1
         else:
