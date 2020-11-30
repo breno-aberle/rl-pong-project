@@ -5,14 +5,13 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.distributions.categorical import Categorical
 from collections import deque
-
 from PIL import Image
 import PIL
-
 import numpy as np
 import cv2
 from skimage import transform
 from skimage.color import rgb2gray  # grayscale image
+
 
 
 class Policy(torch.nn.Module):
@@ -65,10 +64,12 @@ class Policy(torch.nn.Module):
 
 class Agent(object):
     def __init__(self, policy):
-        self.train_device = "cpu"
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.train_device = device
+        print(device)
         self.policy = policy.to(self.train_device)
-        self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.gamma = 0.98
+        self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=1e-4)
+        self.gamma = 0.99
         self.clip_range = 0.2
         self.states = []
         self.action_probs = []
@@ -105,6 +106,9 @@ class Agent(object):
         for i in range(len(states_raw)):
             state_stacked = self.stack_images(states_raw[i], update=True)
             states.append( torch.from_numpy(state_stacked).float() )
+            if done[i]==1:
+                self.img_collection_update = []
+
 
         self.img_collection_update = []
         next_states = []
@@ -231,8 +235,7 @@ class Agent(object):
         x = torch.from_numpy(stacked_img).float().to(self.train_device)
 
         #Add one more dimension, batch_size=1, for the conv2d to read it
-        #x = x.unsqueeze(0)
-        print(x.shape)
+        x = x.unsqueeze(0)
 
         # Change the order, so that the channels are at the beginning is expected: (1*4*80*80) = (batch size, number of channels, height, width)
         x = x.permute(0, 3, 1, 2)
@@ -265,7 +268,7 @@ class Agent(object):
         """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
         #policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
-        weights = torch.load("AC_WimblepongVisualSimpleAI-v0_60000.mdl", map_location=torch.device("cpu"))
+        weights = torch.load("AC_v000_WimblepongVisualSimpleAI-v0_10012.mdl", map_location=self.train_device)
         self.policy.load_state_dict(weights, strict=False)
 
     def get_name(self):
