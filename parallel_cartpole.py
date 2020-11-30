@@ -3,7 +3,7 @@ import gym
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
-from agent_ac import Agent, Policy
+from agent_ac_parallel import Agent, Policy
 from wimblepong import Wimblepong
 from parallel_env import ParallelEnvs
 import pandas as pd

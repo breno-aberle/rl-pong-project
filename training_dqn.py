@@ -47,25 +47,25 @@ if "CartPole" in env_name:
     replay_buffer_size = 500000
     batch_size = 256
 elif "WimblepongVisualSimpleAI-v0" in env_name:
-    TARGET_UPDATE = 17
-    eps = 0.25
+    TARGET_UPDATE = 20
+    eps = 0.07
     num_episodes = 35000
     hidden = 64
     gamma = 0.99
-    replay_buffer_size = 45000
-    batch_size = 128
+    replay_buffer_size = 85000
+    batch_size = 256
 else:
     raise ValueError("Please provide hyperparameters for %s" % env_name)
 
 # The output will be written to your folder ./runs/CURRENT_DATETIME_HOSTNAME,
 # Where # is the consecutive number the script was run
-""" exp_name = 'SCRATCH'
+exp_name = 'FROM2100v3-SERVEBOTHSIDES'
 experiment_name = exp_name
 data_path = os.path.join('data', experiment_name)
 models_path = f"{data_path}/models"
 import wandb
 wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True, config=vars(args), name=exp_name, monitor_gym=True, save_code=True)
-writer = SummaryWriter(f"/tmp/{exp_name}") """
+writer = SummaryWriter(f"/tmp/{exp_name}")
 
 action_space_dim = env.action_space.shape
 observation_space_dim = env.observation_space.shape
@@ -73,17 +73,19 @@ observation_space_dim = env.observation_space.shape
 
 # Task 4 - DQN
 agent = DQNAgent(env_name, observation_space_dim, action_space_dim, replay_buffer_size, batch_size, hidden, gamma)
-#agent.load_model()
+agent.load_model()
 # Training loop
 cumulative_rewards = []
 timestep_history = []
 average_reward_history = []
 average_timestep_history = []
+best=0
 
 totaltimesteps = 0
 for ep in range(num_episodes):
     # Initialize the environment and state
     print(ep)
+    print(eps)
     timesteps=0
     observation = env.reset()
     done = False
@@ -91,9 +93,16 @@ for ep in range(num_episodes):
     img_collection =  deque([np.zeros((80,80), dtype=np.int) for i in range(4)], maxlen=4)
     #We send the first one, will the full of zeros, and the initial observation which is our 'state'.
     state_images, img_collection = agent.stack_images(observation,img_collection, timestep=timesteps)
-    eps = eps*0.99975
-    if eps<0.10:
-        eps=0.10
+    if ep<1000:
+        eps = eps*1.002
+        if ep==550:
+            eps=0.08
+        if eps>0.15:
+            eps=0.15
+    if ep>1000:
+        eps = eps*0.999
+        if eps<0.11:
+            eps=0.11
     cum_reward = 0
     #eps=0
     while not done:
@@ -118,8 +127,8 @@ for ep in range(num_episodes):
         # Move to the next state
         state_images = next_state_images
     cumulative_rewards.append(cum_reward)
-    """writer.add_scalar('Training ' + env_name, cum_reward, ep)
-    writer.add_scalar('Training Timesteps ' + env_name, timesteps, ep)"""
+    writer.add_scalar('Training ' + env_name, cum_reward, ep)
+    writer.add_scalar('Training Timesteps ' + env_name, timesteps, ep)
     print('Timesteps:',timesteps,'Reward:', cum_reward)
     #Store data
     timestep_history.append(timesteps)
@@ -131,9 +140,6 @@ for ep in range(num_episodes):
         avg2 = np.mean(timestep_history)
         average_reward_history.append(avg)
         average_timestep_history.append(avg2)
-        avg3 = np.mean(average_reward_history)
-        avg4 = np.mean(average_timestep_history)
-    print('Total Avg Timesteps:',avg4,'Reward:', avg3)
     print('Avg . 100 . Timesteps:',avg2,'Reward:', avg)
 
 
@@ -146,8 +152,11 @@ for ep in range(num_episodes):
 #
 #    # Save the policy
 #    # Uncomment for Task 4
-    if ep % 450 == 0:
-        torch.save(agent.policy_net.state_dict(),"INCREASING_DIF_AI%s_%d.mdl" % (env_name, ep))
+    if avg>best and ep >100:
+        best=avg
+        torch.save(agent.policy_net.state_dict(),"SERVEBOTHSIDESBEST.mdl")
+    if ep % 295 == 0:
+        torch.save(agent.policy_net.state_dict(),"SERVEBOTHSIDEStry3%s_%d.mdl" % (env_name, ep))
 
 plot_rewards(cumulative_rewards)
 print('Complete')

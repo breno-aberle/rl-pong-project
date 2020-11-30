@@ -91,6 +91,8 @@ class Agent(object):
     def __init__(self, env_name, state_space, n_actions, replay_buffer_size=500000,
                  batch_size=32, hidden_size=64, gamma=0.99):
         self.env_name = env_name
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.train_device = device
         self.n_actions = n_actions
         self.state_space_dim = state_space
         if "CartPole" in self.env_name:
@@ -126,19 +128,19 @@ class Agent(object):
 
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)
-        non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8)
+        non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8).to(self.train_device)
         non_final_mask = non_final_mask.type(torch.bool)
         non_final_next_states = [s for nonfinal,s in zip(non_final_mask,
                                      batch.next_state) if nonfinal > 0]
-        non_final_next_states = torch.stack(non_final_next_states)
-        state_batch = torch.stack(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
+        non_final_next_states = torch.stack(non_final_next_states).to(self.train_device)
+        state_batch = torch.stack(batch.state).to(self.train_device)
+        action_batch = torch.cat(batch.action).to(self.train_device)
+        reward_batch = torch.cat(batch.reward).to(self.train_device)
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch).to(self.train_device)
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
@@ -170,7 +172,7 @@ class Agent(object):
         if sample > epsilon:
             with torch.no_grad():
                 #print('a',state)
-                state = torch.from_numpy(state).float()
+                state = torch.from_numpy(state)
                 #print('b',state)
                 state = state.unsqueeze(0)
                 q_values = self.policy_net(state)
@@ -225,10 +227,10 @@ class Agent(object):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def store_transition(self, state, action, next_state, reward, done):
-        action = torch.Tensor([[action]]).long()
-        reward = torch.tensor([reward], dtype=torch.float32)
-        next_state = torch.from_numpy(next_state).float()
-        state = torch.from_numpy(state).float()
+        action = torch.Tensor([[action]]).long().to(self.train_device)
+        reward = torch.tensor([reward], dtype=torch.float32).to(self.train_device)
+        next_state = torch.from_numpy(next_state).float().to(self.train_device)
+        state = torch.from_numpy(state).float().to(self.train_device)
         self.memory.push(state, action, next_state, reward, done)
 
     def load_model(self):
@@ -238,7 +240,7 @@ class Agent(object):
         return:
             none
         """
-        weights = torch.load("INCREASING_DIF_AIWimblepongVisualSimpleAI-v0_1800.mdl", map_location=torch.device("cpu"))
+        weights = torch.load("FROM2100v2WimblepongVisualSimpleAI-v0_1900.mdl", map_location=self.train_device)
         self.policy_net.load_state_dict(weights, strict=False)
 
     def get_name(self):
