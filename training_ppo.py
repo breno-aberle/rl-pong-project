@@ -23,6 +23,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)
     agent = Agent(policy)
+    #agent.load_model() # TODO: uncomment if new model should be created
 
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
@@ -36,6 +37,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         # Reset the environment and observe the initial state
         observation = env.reset()
         observation = np.array(observation)
+        agent.reset()  # reset all remaining state transition buffers
 
         # Loop until the episode is over
         while not done:
@@ -46,17 +48,19 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
             observation, reward, done, info = env.step(action.detach().numpy())
 
+            #env.render() # TODO: uncomment to test and see how it plays pong
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
+            agent.store_outcome(previous_observation, observation, action_probabilities, reward, done, action)
 
             # Store total episode reward
             reward_sum += reward
             timesteps += 1
             counter += 1
 
-            # Update the actor-critic code to perform TD(0) updates every 50 timesteps
-            if timesteps%45==0 and not done:
-                agent.update_policy(episode_number, episode_done=done)
+        # Update the actor-critic code to perform TD(0) updates every 50 timesteps
+        if counter > 500:
+            counter = 0
+            agent.update_policy(episode_number, episode_done=done)
 
         if print_things:
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
@@ -71,9 +75,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             avg = np.mean(reward_history)
         average_reward_history.append(avg)
 
-        # Let the agent do its magic (update the policy)
-        #COMMENT FOR TASK 2-3 NEXT LINE - UNCOMMENT TASK 1
-        agent.update_policy(episode_number, episode_done=done)
+        # Policy update at the end of episode
+        #agent.update_policy(episode_number, episode_done=done)
 
     # Training is finished - plot rewards
     if print_things:
