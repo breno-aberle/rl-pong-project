@@ -36,6 +36,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         # Reset the environment and observe the initial state
         observation = env.reset()
         observation = np.array(observation)
+        agent.reset()  # reset all remaining state transition buffers
 
         # Loop until the episode is over
         while not done:
@@ -47,7 +48,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             observation, reward, done, info = env.step(action.detach().numpy())
 
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(previous_observation, observation, action_probabilities, reward, done)
+            agent.store_outcome(previous_observation, observation, action_probabilities, reward, done, action)
 
             # Store total episode reward
             reward_sum += reward

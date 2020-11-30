@@ -10,6 +10,7 @@ from PIL import Image
 import PIL
 
 import numpy as np
+import random
 import cv2
 from skimage import transform
 from skimage.color import rgb2gray  # grayscale image
@@ -75,32 +76,30 @@ class Agent(object):
         self.rewards = []
         self.next_states = []
         self.done = []
+        self.actions = []
         self.name = "BeschdePong"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
         self.img_collection = []
         self.img_collection_update = []
+        self.epochs = 10  # number of epochs for minibatch update
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
-    def clipped_surrogate(self, new_action_probs, old_action_probs, advantage):
+    def clipped_surrogate(self, old_action_probs, new_action_probs, advantage):
         """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
         params:
 
         return:
             loss: PPO loss
         """
-        # Get new and old action_probs
-        new_probs =
-        old_probs =
-
         # Calculate ratio of new and old action_probs
-        ratio = new_probs / (old_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
+        ratio = new_action_probs / (old_action_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
         # Clamp ratio
         clip = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip)
         # Clipped surrogate is minima
         clipped_surrogate = torch.min(ratio*advantage, clip*advantage)
 
         # Calculate the estimation by taking the mean of all three parts
-        loss_ppo = torch.mean(-clipped_surrogate)  # TODO: negative or not?
+        loss_ppo = torch.mean(-clipped_surrogate)  # TODO: negative or positive?
 
         return loss_ppo
 
@@ -109,15 +108,13 @@ class Agent(object):
         action_probs = torch.stack(self.action_probs, dim=0).to(self.train_device).squeeze(-1)
         rewards = torch.stack(self.rewards, dim=0).to(self.train_device).squeeze(-1)
         done = torch.Tensor(self.done).to(self.train_device)
+        actions = torch.Tensor(self.actions).to(self.train_device)
         # treat states and next_states differently since they still contain raw images
         states_raw = self.states
         next_states_raw = self.next_states
 
         # Clear state transition buffers
-        self.states, self.action_probs, self.rewards = [], [], []
-        self.next_states, self.done = [], []
-        if episode_done == True:
-            self.reset()  # reset all remaining state transition buffers
+        self.states, self.next_states, self.action_probs, self.rewards, self.done, self.actions = [], [], [], [], [], []
 
         # convert raw images to stacked images
         self.img_collection_update = []
@@ -132,46 +129,61 @@ class Agent(object):
             next_state_stacked = self.stack_images(next_states_raw[j], update=True)
             next_states.append( torch.from_numpy(next_state_stacked).float() )
 
-        states = torch.stack(states, dim=0).to(self.train_device)#.squeeze(-1)
+        states = torch.stack(states, dim=0).to(self.train_device).squeeze(-1)
         next_states = torch.stack(next_states, dim=0).to(self.train_device).squeeze(-1)
 
         # Bring states in right order to be processed
         states = states.permute(0, 3, 1, 2)
         next_states = next_states.permute(0, 3, 1, 2)
 
+        for i in range(self.epochs):
+            # get minibatches
+            number_transitions = len(states)  # check how many transitions have been collected
+            number_batches = int(number_transitions * 0.4)  # get mini-batch size
+            indices_minibatch = random.sample(range(number_transitions), number_batches)  # randomly sample inidices for minibatch
 
-        # Compute state values (NO NEED FOR THE DISTRIBUTION)
-        action_distr, pred_states_value = self.policy.forward(states)
-        action_distr_next, pred_next_states_value = self.policy.forward(next_states)
+            # Create mini-batches:
+            old_states = torch.stack([states[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
+            old_next_states = torch.stack([next_states[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
+            old_action_probs = torch.stack([action_probs[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
+            old_rewards = torch.stack([rewards[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
+            old_done = torch.stack([done[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
+            old_actions = torch.stack([actions[i] for i in indices_minibatch], dim=0).to(self.train_device).squeeze(-1)
 
-        # Delete 1 dimensionality
-        pred_next_states_value = (pred_next_states_value).squeeze(-1)
-        pred_states_value = (pred_states_value).squeeze(-1)
+            # get new state values and action distributions
+            action_distributions, pred_states_value = self.policy.forward(old_states)
+            action_distributions_next, pred_next_states_value = self.policy.forward(old_next_states)
 
-        # Handle terminal states
-        pred_next_states_value = torch.mul(pred_next_states_value, 1-done)
+            # calculate new action probabilities
+            new_action_probs = action_distributions.log_prob(old_actions) # Calculate the log probability of the action
 
-        #Critic Loss:
-        critic_loss = F.mse_loss(pred_states_value, rewards+self.gamma*pred_next_states_value.detach())
-        print('target: ', rewards+self.gamma*pred_next_states_value)
-        print('estimation: ', pred_states_value)
+            # Delete 1 dimensionality
+            pred_next_states_value = (pred_next_states_value).squeeze(-1)
+            pred_states_value = (pred_states_value).squeeze(-1)
 
-        # Compute advantage estimates
-        advantage = rewards + self.gamma * pred_next_states_value - pred_states_value
-        # Calculate actor loss (very similar to PG)
-        actor_loss = (-action_probs * advantage.detach()).mean()
+            # Handle terminal states
+            pred_next_states_value = torch.mul(pred_next_states_value, 1-done)
 
-        # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
-        loss = critic_loss + actor_loss
-        loss.backward()
+            #Critic Loss:
+            critic_loss = F.mse_loss(pred_states_value, old_rewards+self.gamma*pred_next_states_value.detach())
+            print('target: ', old_rewards+self.gamma*pred_next_states_value)
+            print('estimation: ', pred_states_value)
 
-        # Loss PPO:
-        loss_ppo = self.clipped_surrogate(advantage)
-        loss_ppo.backward()
+            # Compute advantage estimates
+            advantage = old_rewards + self.gamma * pred_next_states_value - pred_states_value
+            # Calculate actor loss (very similar to PG)
+            #actor_loss = (-action_probs * advantage.detach()).mean()
 
-        # Update network parameters using self.optimizer and zero gradients
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+            # calculate PPO loss
+            loss_ppo = self.clipped_surrogate(old_action_probs, new_action_probs, advantage)
+
+            # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
+            loss = critic_loss + loss_ppo
+            loss.backward()
+
+            # Update network parameters using self.optimizer and zero gradients
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
     def preprocessing(self, observation):
         """ Preprocess the received information: 1) Grayscaling 2) Reducing quality (resizing)
@@ -262,13 +274,14 @@ class Agent(object):
         return action, act_log_prob
 
 
-    def store_outcome(self, state, next_state, action_prob, reward, done):
+    def store_outcome(self, state, next_state, action_prob, reward, done, action):
         # Now we need to store some more information than with PG
         self.states.append(torch.from_numpy(state).float())
         self.next_states.append(torch.from_numpy(next_state).float())
         self.action_probs.append(action_prob)
         self.rewards.append(torch.Tensor([reward]))
         self.done.append(done)
+        self.actions.append(action)
 
     def load_model(self):
         """ Load already created model
