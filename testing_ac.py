@@ -19,13 +19,6 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Create a Gym environment
     env = gym.make(env_name)
     best=0
-    exp_name = 'ACTOR CRITIC SCRATCH'
-    experiment_name = exp_name
-    data_path = os.path.join('data', experiment_name)
-    models_path = f"{data_path}/models"
-    import wandb
-    wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True, config=vars(args), name=exp_name, monitor_gym=True, save_code=True)
-    writer = SummaryWriter(f"/tmp/{exp_name}")
 
     # Get dimensionalities of actions and observations
     action_space_dim = env.action_space.shape
@@ -53,6 +46,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             # Get action from the agent, an action gets chosen based on the img_stacked processed.
             action, action_probabilities = agent.get_action(observation)
             previous_observation = observation
+            env.render()
 
             # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
             observation, reward, done, info = env.step(action.detach().cpu().numpy())
@@ -79,11 +73,6 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         if print_things:
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
                   .format(episode_number, reward_sum, timesteps))
-        writer.add_scalar('Training ' + env_name, reward_sum, episode_number)
-        writer.add_scalar('Training Timesteps ' + env_name, timesteps, episode_number)
-        if episode_number%60==0 and episode_number!=0:
-            agent.update_policy(episode_number, episode_done=done)
-        # Bookkeeping (mainly for generating plots)
         reward_history.append(reward_sum)
         timestep_history.append(timesteps)
         if episode_number > 100:

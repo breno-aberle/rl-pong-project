@@ -11,11 +11,11 @@ class SimpleAi(object):
         self.player_id = player_id  
         # Ball prediction error, introduce noise such that SimpleAI reflects not
         # only in straight lines
-        self.bpe = 4                
+        self.bpe = 4
         self.name = "SimpleAI"
         self.timestep = 0
         self.counter = 0
-        self.target = 35
+        self.target = 25
     def get_name(self):
         """
         Interface function to retrieve the agents name
@@ -35,15 +35,20 @@ class SimpleAi(object):
         ball_y = self.env.ball.y + (random.random()*self.bpe-self.bpe/2)
         if my_y<138 and my_y>132:
             self.timestep=0
-        if self.counter%20000:
-            self.target=self.target-2
-        if self.target < 2:
+        #if self.counter%30000:
+        #    self.target=self.target-2
+        #if self.target < 2:
+        #    self.target=0
+        if self.timestep<45:
             self.target=0
+        else:
+            self.target=25
 
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
         randomnumber=0
+        self.timestep += 1
 
         randomnumber= int(self.target*random.random())
         self.counter += 1
@@ -54,6 +59,7 @@ class SimpleAi(object):
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
+        #action=0
         return action
 
     def reset(self):
