@@ -66,9 +66,11 @@ class Policy(torch.nn.Module):
 
 class Agent(object):
     def __init__(self, policy):
-        self.train_device = "cpu"
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.train_device = device
         self.policy = policy.to(self.train_device)
-        self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
+        #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
+        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4)
         self.gamma = 0.98
         self.eps_clip = 0.2
         self.states = []
@@ -122,6 +124,8 @@ class Agent(object):
         for i in range(len(states_raw)):
             state_stacked = self.stack_images(states_raw[i], update=True)
             states.append( torch.from_numpy(state_stacked).float() )
+            if done[i] == 1:  # important to handle episode endings
+                self.img_collection_update = []
 
         self.img_collection_update = []
         next_states = []
@@ -135,6 +139,7 @@ class Agent(object):
         # Bring states in right order to be processed
         states = states.permute(0, 3, 1, 2)
         next_states = next_states.permute(0, 3, 1, 2)
+
 
         for i in range(self.epochs):
             # get minibatches
@@ -162,7 +167,7 @@ class Agent(object):
             pred_states_value = (pred_states_value).squeeze(-1)
 
             # Handle terminal states
-            pred_next_states_value = torch.mul(pred_next_states_value, 1-done)
+            pred_next_states_value = torch.mul(pred_next_states_value, 1-old_done)
 
             #Critic Loss:
             critic_loss = F.mse_loss(pred_states_value, old_rewards+self.gamma*pred_next_states_value.detach())
@@ -175,7 +180,7 @@ class Agent(object):
             #actor_loss = (-action_probs * advantage.detach()).mean()
 
             # calculate PPO loss
-            loss_ppo = self.clipped_surrogate(old_action_probs, new_action_probs, advantage)
+            loss_ppo = self.clipped_surrogate(old_action_probs.detach(), new_action_probs, advantage.detach())
 
             # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
             loss = critic_loss + loss_ppo
