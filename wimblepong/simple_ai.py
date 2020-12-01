@@ -42,8 +42,7 @@ class SimpleAi(object):
         if self.timestep<45:
             self.target=0
         else:
-            self.target=25
-
+            self.target=20
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
@@ -59,7 +58,6 @@ class SimpleAi(object):
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
-        #action=0
         return action
 
     def reset(self):

@@ -5,11 +5,12 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.distributions.categorical import Categorical
 from collections import deque
-
+import sys
 from PIL import Image
 import PIL
 
 import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
 import random
 import cv2
 from skimage import transform
@@ -48,16 +49,22 @@ class Policy(torch.nn.Module):
 
     def forward(self, x):
         # Common part: Convolutional Neural Network
+        #print(x[0])
         x = self.cnn(x)
-
+        #print(x)
         # Actor part
         action_mean = self.fc2_mean(x)
+        #If we want to use probs
+        #action_mean = F.softmax(action_mean)
         sigma = self.sigma
+
 
         # Critic part
         state_val = self.fc3(x)
         # Instantiate and return a normal distribution with mean mu and std of sigma
         #action_dist = Normal(action_mean, sigma)
+        #action_dist = Categorical(logits=action_mean)
+        #If we use probs instead of logits
         action_dist = Categorical(logits=action_mean)
 
         # Return state value in addition to the distribution
@@ -71,7 +78,7 @@ class Agent(object):
         self.policy = policy.to(self.train_device)
         #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
         self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4)
-        self.gamma = 0.98
+        self.gamma = 0.99
         self.eps_clip = 0.2
         self.states = []
         self.action_probs = []
@@ -94,14 +101,15 @@ class Agent(object):
             loss: PPO loss
         """
         # Calculate ratio of new and old action_probs
-        ratio = new_action_probs / (old_action_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
+        ratio = torch.exp(new_action_probs - old_action_probs)
+        #new_action_probs / (old_action_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
         # Clamp ratio
         clip = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip)
         # Clipped surrogate is minima
         clipped_surrogate = torch.min(ratio*advantage, clip*advantage)
 
         # Calculate the estimation by taking the mean of all three parts
-        loss_ppo = torch.mean(-clipped_surrogate)  # TODO: negative or positive?
+        loss_ppo = torch.mean(clipped_surrogate)  # TODO: negative or positive?
 
         return loss_ppo
 
@@ -171,8 +179,8 @@ class Agent(object):
 
             #Critic Loss:
             critic_loss = F.mse_loss(pred_states_value, old_rewards+self.gamma*pred_next_states_value.detach())
-            print('target: ', old_rewards+self.gamma*pred_next_states_value)
-            print('estimation: ', pred_states_value)
+            #print('target: ', old_rewards+self.gamma*pred_next_states_value)
+            #print('estimation: ', pred_states_value)
 
             # Compute advantage estimates
             advantage = old_rewards + self.gamma * pred_next_states_value - pred_states_value
@@ -183,7 +191,8 @@ class Agent(object):
             loss_ppo = self.clipped_surrogate(old_action_probs.detach(), new_action_probs, advantage.detach())
 
             # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
-            loss = critic_loss + loss_ppo
+            loss = 0.5*critic_loss - loss_ppo
+            print(loss)
             loss.backward()
 
             # Update network parameters using self.optimizer and zero gradients
@@ -196,13 +205,16 @@ class Agent(object):
             observation: image of pong
         """
         # Grayscaling
+
         img_gray = np.dot(observation, [0.2989, 0.5870, 0.1140]).astype(np.uint8)
-
+        img_resized = cv2.resize(img_gray, dsize=(80, 80))
+        #print('First',img_resized)
+        img_resized[img_resized < 25] = 0 #Background in black
+        img_resized[img_resized > 40] = 255 #The rest in white
+        #print('After',img_resized)
         # Normalize pixel values
-        img_norm = img_gray / 255.0
-
+        img_norm = img_resized / 255.0
         # Downsampling: we receive squared image (e.g. 200x200) and downsample by x2.5 to (80x80)
-        img_resized = cv2.resize(img_norm, dsize=(80, 80))
 
         return img_resized
 
@@ -255,6 +267,7 @@ class Agent(object):
         # get stacked image
         stacked_img = self.stack_images(observation)
 
+
         # create torch out from numpy array
         x = torch.from_numpy(stacked_img).float().to(self.train_device)
 
@@ -292,7 +305,8 @@ class Agent(object):
         """ Load already created model
         """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        policy.load_state_dict(torch.load("./model50000ep_WimblepongVisualSimpleAI-v0_0.mdl"))
+        weights = torch.load("PPOv7WimblepongVisualSimpleAI-v0_9500.mdl", map_location=self.train_device)
+        self.policy.load_state_dict(weights, strict=False)
 
 
     def get_name(self):

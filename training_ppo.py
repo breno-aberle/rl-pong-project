@@ -9,12 +9,22 @@ from wimblepong import Wimblepong  # import wimblepong-environment
 import pandas as pd
 from PIL import Image
 from collections import deque
+import os
+from torch.utils.tensorboard import SummaryWriter
 
 
 # Policy training function
 def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Create a Gym environment
     env = gym.make(env_name)
+
+    exp_name = 'PPO-SERVEONEDIRECTION-ACTION0'
+    experiment_name = exp_name
+    data_path = os.path.join('data', experiment_name)
+    models_path = f"{data_path}/models"
+    import wandb
+    wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True, config=vars(args), name=exp_name, monitor_gym=True, save_code=True)
+    writer = SummaryWriter(f"/tmp/{exp_name}")
 
     # Get dimensionalities of actions and observations
     action_space_dim = env.action_space.shape
@@ -23,12 +33,13 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)
     agent = Agent(policy)
-    #agent.load_model() # TODO: uncomment if new model should be created
+    agent.load_model() # TODO: uncomment if new model should be created
 
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
     average_reward_history = []
     counter = 0
+    best=0
 
     # Run actual training
     for episode_number in range(train_episodes):
@@ -36,17 +47,18 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         done = False
         # Reset the environment and observe the initial state
         observation = env.reset()
-        observation = np.array(observation)
         agent.reset()  # reset all remaining state transition buffers
 
         # Loop until the episode is over
         while not done:
             # Get action from the agent, an action gets chosen based on the img_stacked processed.
+
             action, action_probabilities = agent.get_action(observation, timestep=timesteps)
             previous_observation = observation
+            #env.render()
 
             # Perform the action on the environment, get new state and reward. Now we perform a new step, to see what happens with the action in our current state, the result is the next state
-            observation, reward, done, info = env.step(action.detach().numpy())
+            observation, reward, done, info = env.step(action.detach().cpu().numpy())
 
             #env.render() # TODO: uncomment to test and see how it plays pong
             # Store action's outcome (so that the agent can improve its policy)
@@ -58,9 +70,11 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             counter += 1
 
         # Update the actor-critic code to perform TD(0) updates every 50 timesteps
-        if counter > 500:
+        if counter > 400:
             counter = 0
             agent.update_policy(episode_number, episode_done=done)
+        writer.add_scalar('Training Reward' + env_name, reward_sum, episode_number)
+        writer.add_scalar('Training Timesteps ' + env_name, timesteps, episode_number)
 
         if print_things:
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
@@ -74,6 +88,9 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         else:
             avg = np.mean(reward_history)
         average_reward_history.append(avg)
+
+        if episode_number % 4500 == 0 and episode_number != 0:
+            torch.save(agent.policy.state_dict(), "PPO_FROMV7_SERVEBOTH%s_%d.mdl" % (env_name, episode_number))
 
         # Policy update at the end of episode
         #agent.update_policy(episode_number, episode_done=done)
@@ -95,7 +112,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
                          # TODO: Change algorithm name for plots, if you want
                          "algorithm": ["Non-Episodic AC"]*len(reward_history),
                          "reward": reward_history})
-    torch.save(agent.policy.state_dict(), "model2_%s_%d.mdl" % (env_name, train_run_id))
+    #torch.save(agent.policy.state_dict(), "modelPPOservetousACTION0_%s_%d.mdl" % (env_name, train_run_id))
     return data
 
 
@@ -136,8 +153,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_episodes", type=int, default=5000, help="Number of episodes to train for")
+    parser.add_argument("--train_episodes", type=int, default=1000000, help="Number of episodes to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
+    parser.add_argument('--prod-mode', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+                        help='run the script in production mode and use wandb to log outputs')
+    parser.add_argument('--capture-video', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
+                        help='weather to capture videos of the agent performances (check out `videos` folder)')
+    parser.add_argument('--wandb-project-name', type=str, default="PPO_RL_Agent",
+                        help="the wandb's project name")
+    parser.add_argument('--wandb-entity', type=str, default=None,
+                        help="the entity (team) of wandb's project")
     args = parser.parse_args()
 
     # If no model was passed, train a policy from scratch.
