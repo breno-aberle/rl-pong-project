@@ -64,7 +64,7 @@ class Policy(torch.nn.Module):
         state_val = self.fc3(x)
         # Instantiate and return a normal distribution with mean mu and std of sigma
         #action_dist = Normal(action_mean, sigma)
-        #action_dist = Categorical(logits=action_mean)
+        #action_dist = Categorical(probs=action_mean)
         #If we use probs instead of logits
         action_dist = Categorical(logits=action_mean)
 
@@ -78,8 +78,8 @@ class Agent(object):
         device = 'cpu'
         self.train_device = device
         self.policy = policy.to(self.train_device)
-        #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4)
+        #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=2e-4)
+        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4, betas=(0.9,0.999))
         self.gamma = 0.99
         self.eps_clip = 0.20
         self.states = []
@@ -91,8 +91,8 @@ class Agent(object):
         self.name = "BeschdePong"
         self.timestepss = 0
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
-        self.img_collection = [[] for _ in range(16)]
-        self.img_collection_update = [[] for _ in range(16)]
+        self.img_collection = [[] for _ in range(20)]
+        self.img_collection_update = [[] for _ in range(20)]
         self.epochs = 10  # number of epochs for minibatch update
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
@@ -134,7 +134,7 @@ class Agent(object):
         next_states = []
         p=0
         while p<(len(states_raw)):
-            for h in range (16):
+            for h in range (20):
                 state_stacked = self.stack_images(states_raw[p], h, update=True, nextstate=False)
                 states.append( torch.from_numpy(state_stacked).float() )
                 next_state_stacked = self.stack_images(next_states_raw[p], h, update=True, nextstate=True)
@@ -155,7 +155,7 @@ class Agent(object):
         for i in range(self.epochs):
             # get minibatches
             number_transitions = len(states)  # check how many transitions have been collected
-            number_batches = int(number_transitions * 0.25)  # get mini-batch size
+            number_batches = int(number_transitions * 0.40)  # get mini-batch size
             indices_minibatch = random.sample(range(number_transitions), number_batches)  # randomly sample inidices for minibatch
 
             # Create mini-batches:
@@ -192,9 +192,10 @@ class Agent(object):
 
             # calculate PPO loss
             loss_ppo = self.clipped_surrogate(old_action_probs.detach(), new_action_probs, advantage.detach())
-
+            entropy_loss = 0.01*action_distributions.entropy()
+            entropy_loss=torch.mean(entropy_loss)
             # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
-            loss = 0.5*critic_loss - loss_ppo
+            loss = 0.4*critic_loss - loss_ppo - entropy_loss
             print(loss)
             loss.backward()
 
@@ -319,8 +320,8 @@ class Agent(object):
 
     def get_action(self, observation, evaluation=False):
         self.timestepss += 1
-        stacked_img=[[] for _ in range(16)]
-        for p in range(16):
+        stacked_img=[[] for _ in range(20)]
+        for p in range(20):
             stacked_img[p] = self.stack_images(observation[p], p)
         #print(stacked_img)
         stacked_img = np.array(stacked_img)
@@ -361,7 +362,7 @@ class Agent(object):
         """ Load already created model
         """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        weights = torch.load("PPO_V2_V1WimblepongVisualSimpleAI-v0_3500.mdl", map_location=self.train_device)
+        weights = torch.load("Model_Parallel_v5_WimblepongVisualSimpleAI-v0_90000.mdl", map_location=self.train_device)
         self.policy.load_state_dict(weights, strict=False)
 
 

@@ -15,8 +15,8 @@ from torch.utils.tensorboard import SummaryWriter
 def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, update_steps=500):
     # Create a Gym environment
     # This creates 64 parallel envs running in 8 processes (8 envs each)
-    env = ParallelEnvs(env_name, processes=4, envs_per_process=4)
-    exp_name = 'PPO_PARALLEL_FINAL'
+    env = ParallelEnvs(env_name, processes=5, envs_per_process=4)
+    exp_name = 'PPO_PARALLEL_START'
     experiment_name = exp_name
     data_path = os.path.join('data', experiment_name)
     models_path = f"{data_path}/models"
@@ -31,7 +31,7 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)
     agent = Agent(policy)
-    agent.load_model()
+    #agent.load_model()
 
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
@@ -40,6 +40,8 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
     # Run actual training
     # Reset the environment and observe the initial state
     observation = env.reset()
+    wonp=0
+    lost=0
 
     # Loop forever
     for timestep in range(train_timesteps):
@@ -62,6 +64,13 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
                     writer.add_scalar('Training Reward' + env_name, reward[i], timestep)
                     agent.reset(i)
                     print('Episode finished',i,'timestep', timestep)
+                    if envreward==10:
+                        wonp=wonp+1
+                    if envreward==-10:
+                        lost=lost+1
+                        print("Winning Rate:", wonp/(wonp+lost))
+                        print("Won:" ,wonp)
+                        print("Lost:" ,lost)
                     break
             # Store action's outcome (so that the agent can improve its policy)
             agent.store_outcome(previous_observation[i], observation[i], action[i],
@@ -81,18 +90,18 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
             plt.plot(average_reward_history)
             plt.legend(["Reward", "500-episode average"])
             plt.title("AC reward history (non-episodic, parallel)")
-            plt.savefig("Rewards_Parallel16_%s.png" % env_name)
+            plt.savefig("Rewards_Parallel_SCRAATCH1111_%s.png" % env_name)
             plt.clf()
-        model_freq=25000
+        model_freq=8500
         if timestep % model_freq == 0 :
-            torch.save(agent.policy.state_dict(), "Model_Parallel_16_%s_%d.mdl" % (env_name, timestep))
+            torch.save(agent.policy.state_dict(), "Model_StartVFINAAAAbbbbLFROMSCRACTH111_%s_%d.mdl" % (env_name, timestep))
             print("%d: Plot and model saved." % timestep)
     data = pd.DataFrame({"episode": np.arange(len(reward_history)),
                          "train_run_id": [train_run_id]*len(reward_history),
                          # TODO: Change algorithm name for plots, if you want
                          "algorithm": ["Nonepisodic parallel AC"]*len(reward_history),
                          "reward": reward_history})
-    torch.save(agent.policy.state_dict(), "Model_Parallel_16Final_%s_%d.mdl" % (env_name, train_run_id))
+    torch.save(agent.policy.state_dict(), "Model_Parallel_VFINAAAAbbbbbLFROMSCRATCH111_%s_%d.mdl" % (env_name, train_run_id))
     return data
 
 
@@ -133,7 +142,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
     parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
-    parser.add_argument("--train_timesteps", type=int, default=200000, help="Number of timesteps to train for")
+    parser.add_argument("--train_timesteps", type=int, default=2000000, help="Number of timesteps to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     parser.add_argument('--prod-mode', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,
                         help='run the script in production mode and use wandb to log outputs')
