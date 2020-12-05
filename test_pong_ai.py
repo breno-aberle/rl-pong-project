@@ -9,6 +9,7 @@ import gym
 import numpy as np
 import argparse
 import wimblepong
+import agent
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--headless", action="store_true", help="Run in headless mode")
@@ -40,7 +41,7 @@ for i in range(0, episodes):
     done = False
     while not done:
         # action1 is zero because in this example no agent is playing as player 0
-        action1 = 0 #player.get_action()
+        player.get_action(ob1)
         ob1, rew1, done, info = env.step(action1)
         if args.housekeeping:
             states.append(ob1)

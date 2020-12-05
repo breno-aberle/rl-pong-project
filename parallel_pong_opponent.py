@@ -4,6 +4,8 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 from agent_ppo_parallel import Agent, Policy
+from agent_ppo import Agent as AgentOp
+from agent_ppo import Policy as PolicyOp
 from wimblepong import Wimblepong
 from parallel_env import ParallelEnvs
 import pandas as pd
@@ -12,11 +14,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 # Policy training function
-def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, update_steps=500):
+def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, update_steps=470):
     # Create a Gym environment
     # This creates 64 parallel envs running in 8 processes (8 envs each)
-    env = ParallelEnvs(env_name, processes=6, envs_per_process=5)
-    exp_name = 'PPO_Model_Parallel_Final_AgainstAIPersonalities'
+    env = ParallelEnvs(env_name, processes=5, envs_per_process=4)
+    exp_name = 'PPO_Model_Parallel_Final_AgainstAgent'
     experiment_name = exp_name
     data_path = os.path.join('data', experiment_name)
     models_path = f"{data_path}/models"
@@ -28,10 +30,24 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
     action_space_dim = env.action_space.shape
     observation_space_dim = env.observation_space.shape
 
+
+
+    # Set the names for both SimpleAIs
+
+
     # Instantiate agent and its policy
     policy = Policy(observation_space_dim, action_space_dim)
     agent = Agent(policy)
     agent.load_model()
+
+    policy2 = Policy(observation_space_dim, action_space_dim)
+    agent2 = Agent(policy2)
+    agent2.load_model()
+
+    player_id = 1
+    opponent_id = 3 - player_id
+    print(env_name)
+
 
     # Arrays to keep track of rewards
     reward_history, timestep_history = [], []
@@ -39,7 +55,11 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
 
     # Run actual training
     # Reset the environment and observe the initial state
-    observation = env.reset()
+    ob2 = env.reset()
+    ob1 = ob2[:,1,:,:,:]
+    ob2 = ob1
+    print(ob1.shape)
+    print(ob2.shape)
     wonp=0
     lost=0
 
@@ -47,11 +67,12 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
     for timestep in range(train_timesteps):
         # Get action from the agent
         #print(observation.shape)
-        action, action_probabilities = agent.get_action(observation)
-        previous_observation = observation
+        action1, action_probabilities = agent.get_action(ob1)
+        action2, action_probabilities = agent2.get_action(ob2)
+        previous_observation = ob1
 
         # Perform the action on the environment, get new state and reward
-        observation, reward, done, info = env.step(action.detach().cpu().numpy())
+        (ob1, ob2), (rew1, rew2), done, info = env.step((action1.detach().cpu().numpy(),action2.detach().cpu().numpy()))
 
         for i in range(len(info["infos"])):
             env_done = False
@@ -61,7 +82,7 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
                     reward_history.append(envreward)
                     average_reward_history.append(np.mean(reward_history[-500:]))
                     env_done = True
-                    writer.add_scalar('Training Reward' + env_name, reward[i], timestep)
+                    writer.add_scalar('Training Reward' + env_name, rew1[i], timestep)
                     agent.reset(i)
                     print('Episode finished',i,'timestep', timestep)
                     if envreward==10:
@@ -73,8 +94,8 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
                         print("Lost:" ,lost)
                     break
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(previous_observation[i], observation[i], action[i],
-                                action_probabilities[i], reward[i], env_done)
+            agent.store_outcome(previous_observation[i], ob1[i], action1[i],
+                                action_probabilities[i], rew1[i], env_done)
 
 
 
@@ -83,25 +104,25 @@ def train(env_name, print_things=True, train_run_id=0, train_timesteps=1000000, 
             agent.update_policy(0)
 
 
-        plot_freq = 3000
+        plot_freq = 1000
         if timestep % plot_freq == plot_freq-1:
             # Training is finished - plot rewards
             plt.plot(reward_history)
             plt.plot(average_reward_history)
             plt.legend(["Reward", "500-episode average"])
             plt.title("AC reward history (non-episodic, parallel)")
-            plt.savefig("Rewards_Model_Parallel_New_AgainstMultipleAIs_%s.png" % env_name)
+            plt.savefig("Rewards_Model_Parallel_Final_AgainstAgent_%s.png" % env_name)
             plt.clf()
-        model_freq=15000
+        model_freq=1500
         if timestep % model_freq == 0 :
-            torch.save(agent.policy.state_dict(), "Model_Parallel_New_AgainstMultipleAIs_%s_%d.mdl" % (env_name, timestep))
+            torch.save(agent.policy.state_dict(), "Model_Parallel_Final_AgainstAgent_%s_%d.mdl" % (env_name, timestep))
             print("%d: Plot and model saved." % timestep)
     data = pd.DataFrame({"episode": np.arange(len(reward_history)),
                          "train_run_id": [train_run_id]*len(reward_history),
                          # TODO: Change algorithm name for plots, if you want
                          "algorithm": ["Nonepisodic parallel AC"]*len(reward_history),
                          "reward": reward_history})
-    torch.save(agent.policy.state_dict(), "Model_Parallel_New_AgainstMultipleAIs_%s_%d.mdl" % (env_name, train_run_id))
+    torch.save(agent.policy.state_dict(), "Model_Parallel_Final_AgainstAgent_%s_%d.mdl" % (env_name, train_run_id))
     return data
 
 
@@ -141,7 +162,7 @@ def test(env_name, episodes, params, render):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", "-t", type=str, default=None, help="Model to be tested")
-    parser.add_argument("--env", type=str, default="WimblepongVisualSimpleAI-v0", help="Environment to use")
+    parser.add_argument("--env", type=str, default="WimblepongVisualMultiplayer-v0", help="Environment to use")
     parser.add_argument("--train_timesteps", type=int, default=2000000, help="Number of timesteps to train for")
     parser.add_argument("--render_test", action='store_true', help="Render test")
     parser.add_argument('--prod-mode', type=lambda x:bool(strtobool(x)), default=True, nargs='?', const=True,

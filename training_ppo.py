@@ -18,7 +18,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Create a Gym environment
     env = gym.make(env_name)
 
-    exp_name = 'PPO-SERVEONEDIRECTION-ACTION0'
+    exp_name = 'PPO_V3'
     experiment_name = exp_name
     data_path = os.path.join('data', experiment_name)
     models_path = f"{data_path}/models"
@@ -68,17 +68,17 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             reward_sum += reward
             timesteps += 1
             counter += 1
-
+        if print_things:
+            print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
+                  .format(episode_number, reward_sum, timesteps))
         # Update the actor-critic code to perform TD(0) updates every 50 timesteps
-        if counter > 400:
+        if counter > 500:
             counter = 0
             agent.update_policy(episode_number, episode_done=done)
         writer.add_scalar('Training Reward' + env_name, reward_sum, episode_number)
         writer.add_scalar('Training Timesteps ' + env_name, timesteps, episode_number)
 
-        if print_things:
-            print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
-                  .format(episode_number, reward_sum, timesteps))
+
 
         # Bookkeeping (mainly for generating plots)
         reward_history.append(reward_sum)
@@ -89,8 +89,8 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             avg = np.mean(reward_history)
         average_reward_history.append(avg)
 
-        if episode_number % 4500 == 0 and episode_number != 0:
-            torch.save(agent.policy.state_dict(), "PPO_FROMV7_SERVEBOTH%s_%d.mdl" % (env_name, episode_number))
+        if episode_number % 1000 == 0 and episode_number != 0:
+            torch.save(agent.policy.state_dict(), "PPO_VFINAL%s_%d.mdl" % (env_name, episode_number))
 
         # Policy update at the end of episode
         #agent.update_policy(episode_number, episode_done=done)

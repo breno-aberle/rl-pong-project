@@ -141,8 +141,6 @@ class ParallelEnvs(object):
             self.parent_pipes[i].send(("step", actions[idx:(idx+inc)]))
             idx += inc
 
-
-
         # read resulting states
         states, rewards, dones, infos = [], [], [], []
         for i in range(self.num_processes):

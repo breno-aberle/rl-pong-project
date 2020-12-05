@@ -7,7 +7,7 @@ from matplotlib import font_manager
 from time import sleep
 
 parser = argparse.ArgumentParser()
-parser.add_argument("dir", type=str, help="Directory with agents.")
+parser.add_argument("dir", type=str, default="/IdeaProjects/rl-pong-project/", help="Directory with agents.")
 parser.add_argument("--render", "-r", action="store_true", help="Render the competition.")
 parser.add_argument("--games", "-g", type=int, default=100, help="Number of games.")
 parser.add_argument("--max_proc", "-p", type=int, default=4, help="Max number of processes.")
@@ -24,7 +24,7 @@ def save_winrate(dir, wins, games):
 def run_test(agent_dir, games, render):
     sys.path.insert(0, agent_dir)
     orig_wd = os.getcwd()
-    from agent import Agent as Agent1
+    from agent_ppo import Agent as Agent1
     os.chdir(agent_dir)
     agent1 = Agent1()
     agent1.load_model()

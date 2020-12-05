@@ -72,21 +72,21 @@ class Policy(torch.nn.Module):
 
 
 class Agent(object):
-    def __init__(self, policy):
+    def __init__(self):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.train_device = device
-        self.policy = policy.to(self.train_device)
+        self.policy = Policy().to(self.train_device)
         #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
-        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4)
+        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4, betas=(0.9,0.999))
         self.gamma = 0.99
-        self.eps_clip = 0.2
+        self.eps_clip = 0.10
         self.states = []
         self.action_probs = []
         self.rewards = []
         self.next_states = []
         self.done = []
         self.actions = []
-        self.name = "BeschdePong"
+        self.name = "Del Pongtro"
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
         self.img_collection = []
         self.img_collection_update = []
@@ -210,7 +210,7 @@ class Agent(object):
         img_resized = cv2.resize(img_gray, dsize=(80, 80))
         #print('First',img_resized)
         img_resized[img_resized < 25] = 0 #Background in black
-        img_resized[img_resized > 40] = 255 #The rest in white
+        img_resized[img_resized >= 25] = 255 #The rest in white
         #print('After',img_resized)
         # Normalize pixel values
         img_norm = img_resized / 255.0
@@ -263,7 +263,7 @@ class Agent(object):
 
 
 
-    def get_action(self, observation, timestep, evaluation=False):
+    def get_action(self, observation, evaluation=True):
         # get stacked image
         stacked_img = self.stack_images(observation)
 
@@ -282,7 +282,8 @@ class Agent(object):
 
         # Get action: Return mean if evaluation, else sample from the distribution (returned by the policy)
         if evaluation:
-            action = action_distribution.mean()
+            #action = torch.mean(action_distribution)
+            action = torch.argmax(action_distribution.probs, dim=-1)
         else:
             action = action_distribution.sample()
 
@@ -304,8 +305,7 @@ class Agent(object):
     def load_model(self):
         """ Load already created model
         """
-        #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        weights = torch.load("PPOv7WimblepongVisualSimpleAI-v0_9500.mdl", map_location=self.train_device)
+        weights = torch.load("Model_Parallel_Final_AgainstMultipleAIs_WimblepongVisualSimpleAI-v0_100500.mdl", map_location=self.train_device)
         self.policy.load_state_dict(weights, strict=False)
 
 

@@ -81,7 +81,7 @@ class Agent(object):
         #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=2e-4)
         self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4, betas=(0.9,0.999))
         self.gamma = 0.99
-        self.eps_clip = 0.20
+        self.eps_clip = 0.10
         self.states = []
         self.action_probs = []
         self.rewards = []
@@ -91,8 +91,8 @@ class Agent(object):
         self.name = "BeschdePong"
         self.timestepss = 0
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
-        self.img_collection = [[] for _ in range(30)]
-        self.img_collection_update = [[] for _ in range(30)]
+        self.img_collection = [[] for _ in range(20)]
+        self.img_collection_update = [[] for _ in range(20)]
         self.epochs = 10  # number of epochs for minibatch update
         #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
@@ -134,7 +134,7 @@ class Agent(object):
         next_states = []
         p=0
         while p<(len(states_raw)):
-            for h in range (30):
+            for h in range (20):
                 state_stacked = self.stack_images(states_raw[p], h, update=True, nextstate=False)
                 states.append( torch.from_numpy(state_stacked).float() )
                 next_state_stacked = self.stack_images(next_states_raw[p], h, update=True, nextstate=True)
@@ -320,8 +320,8 @@ class Agent(object):
 
     def get_action(self, observation, evaluation=False):
         self.timestepss += 1
-        stacked_img=[[] for _ in range(30)]
-        for p in range(30):
+        stacked_img=[[] for _ in range(20)]
+        for p in range(20):
             stacked_img[p] = self.stack_images(observation[p], p)
         #print(stacked_img)
         stacked_img = np.array(stacked_img)
@@ -362,7 +362,7 @@ class Agent(object):
         """ Load already created model
         """
         #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        weights = torch.load("Model_Parallel_Final_AgainstMultipleAIs_WimblepongVisualSimpleAI-v0_25500.mdl", map_location=self.train_device)
+        weights = torch.load("Model_Parallel_Final_AgainstAI_WimblepongVisualSimpleAI-v0_246000.mdl", map_location=self.train_device)
         self.policy.load_state_dict(weights, strict=False)
 
 
