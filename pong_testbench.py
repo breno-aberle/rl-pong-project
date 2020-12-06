@@ -12,6 +12,8 @@ class PongTestbench(object):
         self.wins2 = 0
         self.render = render
         self.env = gym.make("WimblepongVisualMultiplayer-v0")
+        self.env.unwrapped.scale = 2
+        self.env.unwrapped.fps = 50
         self.silent = silent
 
     def init_players(self, player1, player2=None):

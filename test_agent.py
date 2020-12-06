@@ -15,7 +15,7 @@ parser.add_argument("--games", "-g", type=int, default=100, help="number of game
 args = parser.parse_args()
 
 sys.path.insert(0, args.dir1)
-import agent_ppo as agent
+import agent
 orig_wd = os.getcwd()
 os.chdir(args.dir1)
 
@@ -35,6 +35,6 @@ if args.dir2:
 else:
     agent2 = None
 
-testbench = PongTestbench(args.render, silent=False)
+testbench = PongTestbench(render=True, silent=False)
 testbench.init_players(agent1, agent2)
 testbench.run_test(args.games)

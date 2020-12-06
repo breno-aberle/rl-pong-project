@@ -31,8 +31,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     observation_space_dim = env.observation_space.shape
 
     # Instantiate agent and its policy
-    policy = Policy(observation_space_dim, action_space_dim)
-    agent = Agent(policy)
+    agent = Agent()
     agent.load_model() # TODO: uncomment if new model should be created
 
     # Arrays to keep track of rewards

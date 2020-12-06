@@ -19,10 +19,10 @@ from skimage.color import rgb2gray  # grayscale image
 
 
 class Policy(torch.nn.Module):
-    def __init__(self, state_space, action_space, frames=4):
+    def __init__(self, frames=4):
         super().__init__()
-        self.state_space = state_space
-        self.action_space = action_space
+        #self.state_space = state_space
+        self.action_space = 3
         self.hidden = 512
         #self.fc1 = torch.nn.Linear(state_space, self.hidden)  # CNN is now first layer
         self.fc2_mean = torch.nn.Linear(self.hidden, 3)  # neural network for Q (actor) (action-value)
@@ -58,14 +58,12 @@ class Policy(torch.nn.Module):
         #If we want to use probs
         #action_mean = F.softmax(action_mean)
         sigma = self.sigma
-
-
         # Critic part
         state_val = self.fc3(x)
         # Instantiate and return a normal distribution with mean mu and std of sigma
         #action_dist = Normal(action_mean, sigma)
         #action_dist = Categorical(probs=action_mean)
-        #If we use probs instead of logits
+        #Using logits, instead of probs, gave better results.
         action_dist = Categorical(logits=action_mean)
 
         # Return state value in addition to the distribution
@@ -73,13 +71,15 @@ class Policy(torch.nn.Module):
 
 
 class Agent(object):
-    def __init__(self, policy):
+    def __init__(self):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        device = 'cpu'
+        #Usually for parallel training we run on CPU even if CUDE is available cause has less memory cap.
+        #Recommended use of CPU
+        #device = 'cpu'
         self.train_device = device
-        self.policy = policy.to(self.train_device)
+        self.policy = Policy().to(self.train_device)
         #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=2e-4)
-        self.optimizer = torch.optim.Adam(policy.parameters(), lr=5e-4, betas=(0.9,0.999))
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=5e-4, betas=(0.9,0.999))
         self.gamma = 0.99
         self.eps_clip = 0.20
         self.states = []
@@ -89,12 +89,11 @@ class Agent(object):
         self.done = []
         self.actions = []
         self.name = "BeschdePong"
-        self.timestepss = 0
         self.number_stacked_imgs = 4  # we stack up to for imgs to get information of motion
-        self.img_collection = [[] for _ in range(30)]
-        self.img_collection_update = [[] for _ in range(30)]
+
+        self.img_collection = [[] for _ in range(30)] #Here in range(X), is the number of processes running at the same time
+        self.img_collection_update = [[] for _ in range(30)] #Here in range(X), is the number of processes running at the same time
         self.epochs = 10  # number of epochs for minibatch update
-        #self.img_collection = [np.zeros((80,80), dtype=np.int) for i in range(self.number_stacked_imgs)]
 
     def clipped_surrogate(self, old_action_probs, new_action_probs, advantage):
         """ Clipped surrogate of PPO paper to make sure that that the updates of the policy are not too big
@@ -103,16 +102,15 @@ class Agent(object):
         return:
             loss: PPO loss
         """
-        # Calculate ratio of new and old action_probs
+        # Calculate ratio of new and old action_probs, using exponential, as we use log probs
         ratio = torch.exp(new_action_probs - old_action_probs)
-        #new_action_probs / (old_action_probs + 1e-10)  # add 1e-10 to make sure that the ratio is not 1
-        # Clamp ratio
+        # Clamp ratio, to the desired ratio, 0,2
         clip = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip)
         # Clipped surrogate is minima
         clipped_surrogate = torch.min(ratio*advantage, clip*advantage)
 
         # Calculate the estimation by taking the mean of all three parts
-        loss_ppo = torch.mean(clipped_surrogate)  # TODO: negative or positive?
+        loss_ppo = torch.mean(clipped_surrogate)
 
         return loss_ppo
 
@@ -133,15 +131,16 @@ class Agent(object):
         states = []
         next_states = []
         p=0
+        #Loop through the whole transition buffer of raw images of (raw frame)state and (raw frame)next state:
+        #Build the stack of 4 frames, according to it.
         while p<(len(states_raw)):
             for h in range (30):
                 state_stacked = self.stack_images(states_raw[p], h, update=True, nextstate=False)
                 states.append( torch.from_numpy(state_stacked).float() )
                 next_state_stacked = self.stack_images(next_states_raw[p], h, update=True, nextstate=True)
                 next_states.append( torch.from_numpy(next_state_stacked).float() )
-                if done[p] == 1:  # important to handle episode endings
+                if done[p] == 1:  # important to handle episode endings, so that for the next one it has to fill with new images
                     self.img_collection_update[h] = []
-                    #print('Done in',h)
                 p=p+1
 
         states = torch.stack(states, dim=0).to(self.train_device).squeeze(-1)
@@ -155,7 +154,7 @@ class Agent(object):
         for i in range(self.epochs):
             # get minibatches
             number_transitions = len(states)  # check how many transitions have been collected
-            number_batches = int(number_transitions * 0.40)  # get mini-batch size
+            number_batches = int(number_transitions*0.35)  # get mini-batch size
             indices_minibatch = random.sample(range(number_transitions), number_batches)  # randomly sample inidices for minibatch
 
             # Create mini-batches:
@@ -182,21 +181,21 @@ class Agent(object):
 
             #Critic Loss:
             critic_loss = F.mse_loss(pred_states_value, old_rewards+self.gamma*pred_next_states_value.detach())
-            #print('target: ', old_rewards+self.gamma*pred_next_states_value)
-            #print('estimation: ', pred_states_value)
 
-            # Compute advantage estimates
+
+            # Compute advantage estimates:
             advantage = old_rewards + self.gamma * pred_next_states_value - pred_states_value
-            # Calculate actor loss (very similar to PG)
-            #actor_loss = (-action_probs * advantage.detach()).mean()
 
-            # calculate PPO loss
+
+            # calculate PPO loss: We detach Old probs and Advantages
             loss_ppo = self.clipped_surrogate(old_action_probs.detach(), new_action_probs, advantage.detach())
+            #Calculate Entropy loss, with coefficient c=0.01, recommended by paper
             entropy_loss = 0.01*action_distributions.entropy()
             entropy_loss=torch.mean(entropy_loss)
             # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
+            #Multiplying the critic loss by 0,4. Several numbers such as 0,5 and 0.3 were tried, but 0,4 delivered better results
             loss = 0.4*critic_loss - loss_ppo - entropy_loss
-            print(loss)
+            #print(loss)
             loss.backward()
 
             # Update network parameters using self.optimizer and zero gradients
@@ -245,6 +244,8 @@ class Agent(object):
             else:
                 # Delete first/oldest entry and append new image
                 self.img_collection[p].append(img_preprocessed)
+
+                #CHECK TO SEE IF THE PICTURES LOOK GOOD (DONE:WORK)
                 #np_array = np.array(self.img_collection[p][0])
                 #plt.imsave( "Image0_%s_%d.png" % (p, self.timestepss), np_array, cmap='Greys')
                 #np_array = np.array(self.img_collection[p][1])
@@ -258,10 +259,10 @@ class Agent(object):
             return img_stacked
         else:
             if nextstate==True:
-                self.timestepss=self.timestepss+1
                 #print('Next State')
                 #print(len(self.img_collection_update[p]))
                 img_nextstate = self.img_collection_update[p].copy()
+                #CHECK TO SEE IF THE PICTURES LOOK GOOD (DONE:WORK)
                 """ np_array = np.array(self.img_collection_update[p][0])
                 plt.imsave( "Image%s_%d_0.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(self.img_collection_update[p][1])
@@ -270,7 +271,9 @@ class Agent(object):
                 plt.imsave( "Image%s_%d_2.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(self.img_collection_update[p][3])
                 plt.imsave( "Image%s_%d_3.png" % (p, self.timestepss), np_array, cmap='Greys') """
+                #Appending the new image
                 img_nextstate.append(img_preprocessed)
+                #CHECK TO SEE IF THE PICTURES LOOK GOOD (DONE:WORK)
                 """ np_array = np.array(img_nextstate[0])
                 plt.imsave( "Image%s_%d_40.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(img_nextstate[1])
@@ -279,11 +282,9 @@ class Agent(object):
                 plt.imsave( "Image%s_%d_42.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(img_nextstate[3])
                 plt.imsave( "Image%s_%d_43.png" % (p, self.timestepss), np_array, cmap='Greys') """
-                #print(img_nextstate[4])
                 #if (self.img_collection_update[p][3] != img_nextstate[3]).all:
                 #    print('true')
                 # Stack the images in img_collection
-                #print('here')
                 img_stacked = np.stack(img_nextstate, axis=2)
                 return img_stacked
 
@@ -302,9 +303,9 @@ class Agent(object):
             else:
                 # Delete first/oldest entry and append new image
                 self.img_collection_update[p].append(img_preprocessed)
+                #DEBUGGGG CHECKING (WORKS)
                 #print(len(self.img_collection_update[p]))
                 #print('Adding images')
-                # Stack the images in img_collection
                 #np_array = np.array(self.img_collection_update[p][0])
                 """ plt.imsave( "Image_%s_%d_0.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(self.img_collection_update[p][1])
@@ -313,17 +314,20 @@ class Agent(object):
                 plt.imsave( "Image_%s_%d_2.png" % (p, self.timestepss), np_array, cmap='Greys')
                 np_array = np.array(self.img_collection_update[p][3])
                 plt.imsave( "Image_%s_%d_3.png" % (p, self.timestepss), np_array, cmap='Greys') """
-
+                # Stack the images in img_collection
                 img_stacked = np.stack(self.img_collection_update[p], axis=2)
             return img_stacked
 
 
     def get_action(self, observation, evaluation=False):
-        self.timestepss += 1
+        #Loop through the number of processes
+        #Create a list of list with 30 lists.
         stacked_img=[[] for _ in range(30)]
+        #For every list insert the stack the four pictures of the state
         for p in range(30):
             stacked_img[p] = self.stack_images(observation[p], p)
         #print(stacked_img)
+        #Put the stacks as np.array
         stacked_img = np.array(stacked_img)
         #print(stacked_img.shape)
         # create torch out from numpy array
@@ -345,6 +349,7 @@ class Agent(object):
 
         # Calculate the log probability of the action
         act_log_prob = action_distribution.log_prob(action)
+        action = action.detach().cpu().numpy()
 
         return action, act_log_prob
 
@@ -359,19 +364,18 @@ class Agent(object):
         self.actions.append(action)
 
     def load_model(self):
-        """ Load already created model
+        """ Load the model
         """
-        #load_path = '/home/isaac/codes/autonomous_driving/highway-env/data/2020_09_03/Intersection_egoattention_dqn_ego_attention_1_22:00:25/models'
-        weights = torch.load("Model_Parallel_Final_AgainstMultipleAIs_WimblepongVisualSimpleAI-v0_25500.mdl", map_location=self.train_device)
+        weights = torch.load("model.mdl", map_location='cpu')
         self.policy.load_state_dict(weights, strict=False)
 
 
     def get_name(self):
-        """ Interface function to retrieve the agents name
+        """ Get the name of the agent
         """
         return self.name
 
     def reset(self, i):
-        """ Resets all memories and buffers
+        """ Resets the image collection for the environment which has finished
         """
         self.img_collection[i] = []

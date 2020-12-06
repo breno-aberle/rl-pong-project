@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import cv2
 import matplotlib.pyplot as plt
-from agent_ppo import Agent, Policy
+from agent import Agent
 from wimblepong import Wimblepong  # import wimblepong-environment
 import pandas as pd
 from PIL import Image
@@ -18,7 +18,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     # Create a Gym environmentS
     env = gym.make("WimblepongVisualMultiplayer-v0")
 
-    exp_name = 'PPO_V3'
+    exp_name = 'PPO_AGAINST AGENT'
     experiment_name = exp_name
     data_path = os.path.join('data', experiment_name)
     models_path = f"{data_path}/models"
@@ -26,22 +26,14 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
     wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True, config=vars(args), name=exp_name, monitor_gym=True, save_code=True)
     writer = SummaryWriter(f"/tmp/{exp_name}")
 
-    # Get dimensionalities of actions and observations
-    action_space_dim = env.action_space.shape
-    observation_space_dim = env.observation_space.shape
-
-    # Instantiate agent and its policy
-    policy = Policy(observation_space_dim, action_space_dim)
-    agent = Agent(policy)
+    agent = Agent()
     agent.load_model() # TODO: uncomment if new model should be created
 
-    policy = Policy(observation_space_dim, action_space_dim)
-    opponent = Agent(policy)
+    opponent = Agent()
     opponent.load_model()
 
     player_id = 1
     opponent_id = 3 - player_id
-    print(env_name)
 
 
     env.set_names(agent.get_name(), opponent.get_name())
@@ -63,17 +55,17 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
         # Loop until the episode is over
         while not done:
             # Get action from the agent, an action gets chosen based on the img_stacked processed.
-            action1, action_probabilities = agent.get_action(ob1)
-            action2, action_probabilities = opponent.get_action(ob2)
+            action1, action_probabilities1 = agent.get_action(ob1)
+            action2, action_probabilities2 = opponent.get_action(ob2)
             previous_observation = ob1
 
             # Perform the action on the environment, get new state and reward
-            (ob1, ob2), (rew1, rew2), done, info = env.step((action1.detach().cpu().numpy(),action2.detach().cpu().numpy()))
+            (ob1, ob2), (rew1, rew2), done, info = env.step((action1,action2))
 
 
             #env.render() # TODO: uncomment to test and see how it plays pong
             # Store action's outcome (so that the agent can improve its policy)
-            agent.store_outcome(previous_observation, ob1, action_probabilities, rew1, done, action1)
+            agent.store_outcome(previous_observation, ob1, action_probabilities1, rew1, done, action1)
 
             # Store total episode reward
             reward_sum += rew1
@@ -83,7 +75,7 @@ def train(env_name, print_things=True, train_run_id=0, train_episodes=5000):
             print("Episode {} finished. Total reward: {:.3g} ({} timesteps)"
                   .format(episode_number, reward_sum, timesteps))
         # Update the actor-critic code to perform TD(0) updates every 50 timesteps
-        if counter > 500:
+        if counter > 600:
             counter = 0
             agent.update_policy(episode_number, episode_done=done)
         writer.add_scalar('Training Reward' + env_name, reward_sum, episode_number)

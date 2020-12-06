@@ -79,7 +79,7 @@ class Agent(object):
         #self.optimizer = torch.optim.RMSprop(policy.parameters(), lr=5e-3)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=5e-4, betas=(0.9,0.999))
         self.gamma = 0.99
-        self.eps_clip = 0.10
+        self.eps_clip = 0.20
         self.states = []
         self.action_probs = []
         self.rewards = []
@@ -191,7 +191,7 @@ class Agent(object):
             loss_ppo = self.clipped_surrogate(old_action_probs.detach(), new_action_probs, advantage.detach())
 
             # Loss actor critic: Compute the gradients of loss w.r.t. network parameters
-            loss = 0.5*critic_loss - loss_ppo
+            loss = 0.4*critic_loss - loss_ppo
             print(loss)
             loss.backward()
 
@@ -289,7 +289,7 @@ class Agent(object):
 
         # Calculate the log probability of the action
         act_log_prob = action_distribution.log_prob(action)
-
+        #action = action.detach().cpu().numpy()
         return action, act_log_prob
 
 
@@ -303,18 +303,18 @@ class Agent(object):
         self.actions.append(action)
 
     def load_model(self):
-        """ Load already created model
+        """ Load the model
         """
-        weights = torch.load("Model_Parallel_Finals_WimblepongVisualSimpleAI-v0_193500.mdl", map_location=self.train_device)
+        weights = torch.load("model.mdl", map_location='cpu')
         self.policy.load_state_dict(weights, strict=False)
 
 
     def get_name(self):
-        """ Interface function to retrieve the agents name
+        """ Get the name of the agent
         """
         return self.name
 
     def reset(self):
-        """ Resets all memories and buffers
+        """ Resets the image collection for the environment which has finished
         """
         self.img_collection = []
