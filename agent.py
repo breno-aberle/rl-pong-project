@@ -290,7 +290,7 @@ class Agent(object):
         # Calculate the log probability of the action
         act_log_prob = action_distribution.log_prob(action)
         #action = action.detach().cpu().numpy()
-        return action, act_log_prob
+        return action
 
 
     def store_outcome(self, state, next_state, action_prob, reward, done, action):
